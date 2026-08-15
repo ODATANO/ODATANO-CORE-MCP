@@ -1,0 +1,52 @@
+{
+  "name": "@odatano/core-mcp",
+  "version": "0.1.0",
+  "description": "MCP server exposing ODATANO (Cardano OData bridge, SAP CAP) to AI agents: reads, unsigned tx builds, signing handoff, submit",
+  "license": "Apache-2.0",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "odatano-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "tsc -p tsconfig.test.json && node --test .test-dist/schemas.test.js .test-dist/output.test.js .test-dist/client.test.js",
+    "integration": "npm run build && node scripts/integration-mcp.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ODATANO/ODATANO-MCP.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "cardano",
+    "blockchain",
+    "odata",
+    "sap-cap",
+    "utxo",
+    "plutus",
+    "ai-agent"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.5.0"
+  }
+}
