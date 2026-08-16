@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/@odatano/core-mcp)](https://www.npmjs.com/package/@odatano/core-mcp)
 [![npm downloads](https://img.shields.io/npm/dt/@odatano/core-mcp?logo=npm&label=downloads&color=blue)](https://www.npmjs.com/package/@odatano/core-mcp)
-[![ODATANO](https://img.shields.io/badge/ODATANO-%3E%3D%201.11.0-0C5ECF)](https://www.npmjs.com/package/@odatano/core)
+[![ODATANO](https://img.shields.io/badge/ODATANO-%3E%3D%201.11.0%20(2.0.0--rc.3%2B%20recommended)-0C5ECF)](https://www.npmjs.com/package/@odatano/core)
 [![MCP](https://img.shields.io/badge/MCP-server-2ea44f)](https://modelcontextprotocol.io/)
 [![Node](https://img.shields.io/badge/node-%3E%3D%2020-brightgreen?logo=node.js)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-yellow)](LICENSE)
@@ -24,7 +24,10 @@ pause & resume) are deliberately not exposed. Wallet-worker jobs (ODATANO
 
 - Node.js >= 20
 - A running ODATANO host (`@odatano/core` >= 1.11.0; the worker / indexer
-  tools appear automatically on >= 2.0.0-rc.1)
+  tools appear automatically on >= 2.0.0-rc.1). **2.0.0-rc.3 or newer is
+  recommended** — earlier versions drop `$expand` / `$select` on keyed reads
+  (rc.2) and can answer a keyed read with a row the query excludes (rc.3);
+  `get_transaction` works around the former, the latter has no workaround.
 
 ## Getting an ODATANO instance
 

@@ -93,17 +93,25 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
       },
     },
     run(async (args) => {
-      const tx = await client.callAction('odata', 'GetTransactionByHash', { hash: args.hash });
-      if (!args.includeInputsOutputs) return tx;
-      // The action indexed the tx (and its inputs/outputs). Expand via a
-      // collection query: ODATANO's key-read handler serves the row straight
-      // from the indexer and ignores $expand, the collection path honours it.
+      if (!args.includeInputsOutputs) {
+        return client.callAction('odata', 'GetTransactionByHash', { hash: args.hash });
+      }
+      // One request: the keyed read indexes on a miss AND honours $expand
+      // (ODATANO >= 2.0.0-rc.2 / KNOWN_ISSUES #13).
+      const row = (await client.readEntity('odata', 'Transactions', args.hash, 'inputs,outputs')) as
+        Record<string, unknown> | undefined;
+      const expanded = Array.isArray(row?.inputs) || Array.isArray(row?.outputs);
+      if (row && (expanded || (!row.hasInputs && !row.hasOutputs))) return row;
+      // Older hosts (<= 2.0.0-rc.1) drop $expand on the keyed branch — fall
+      // back to the collection form, which honours it on every version.
+      // Both paths verified live: rc.3 answers from the keyed read, rc.1 from
+      // this fallback, with identical inputs/outputs.
       const page = (await client.queryEntity('odata', 'Transactions', {
         filter: `hash eq '${args.hash}'`,
         expand: 'inputs,outputs',
         top: 1,
       })) as { value?: unknown[] };
-      return page?.value?.[0] ?? tx;
+      return page?.value?.[0] ?? row;
     }, { notFoundAs: (args) => ({ hash: args.hash }) }),
   );
 
