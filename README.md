@@ -57,9 +57,9 @@ Configuration is environment-driven:
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ODATANO_BASE_URL` | `http://localhost:4004` | ODATANO host app |
-| `ODATANO_USERNAME` / `ODATANO_PASSWORD` | unset | Basic auth (CAP mocked/dev auth, e.g. `alice`) |
-| `ODATANO_TOKEN` | unset | Bearer JWT (XSUAA / `auth: jwt`); an `odat_…` value is reserved for the planned ODATANO agent-grant token (sent as `x-agent-token`) |
+| `ODATANO_BASE_URL` | `http://localhost:4004` | ODATANO host app, or the ODATANO ACCESS gateway (`https://api.odatano.dev`) |
+| `ODATANO_TOKEN` | unset | **The usual credential: an ODATANO ACCESS key `oda_…`** (sent as `Authorization: Bearer`; buy one at `POST https://api.odatano.dev/keys`, redeem a code, or sign in at the console). An `odat_…` agent-grant token (sent as `x-agent-token`) works against a direct ODATANO instance; anything else is sent as a plain bearer (XSUAA / `auth: jwt`) |
+| `ODATANO_USERNAME` / `ODATANO_PASSWORD` | unset | Basic auth, operator or CAP mocked/dev auth (e.g. `alice`); not for agents |
 | `ODATANO_SERVICE_PREFIX` | `/odata/v4` | Prefix before `cardano-odata`, `cardano-transaction`, `cardano-sign`, `cardano-worker`, `cardano-indexer` |
 | `ODATANO_TIMEOUT_MS` | `30000` | Per-request timeout |
 | `ODATANO_MCP_MAX_ROWS` | `50` | Default `$top` for `query_entity` and cap on arrays in tool output |

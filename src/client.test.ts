@@ -75,6 +75,14 @@ test('OdatanoClient builds service URLs, auth headers and surfaces OData errors'
       client.callAction('odata', 'GetBlockByHash', { hash: 'x' }),
       (err: unknown) => err instanceof OdatanoApiError && err.status === 404 && err.code === 'ODATANO_NOT_FOUND',
     );
+    // An ODATANO ACCESS key (oda_…) is a plain bearer: the gateway resolves the grant underneath.
+    const viaGateway = new OdatanoClient(loadConfig({ ODATANO_BASE_URL: 'https://api.odatano.dev', ODATANO_TOKEN: 'oda_' + 'f'.repeat(40) }));
+    await viaGateway.callAction('odata', 'GetLatestBlock', { keep: 1 });
+    const gw = seen[seen.length - 1];
+    assert.equal(gw.url, 'https://api.odatano.dev/odata/v4/cardano-odata/GetLatestBlock');
+    assert.equal(gw.headers.Authorization, 'Bearer oda_' + 'f'.repeat(40));
+    assert.equal(gw.headers['x-agent-token'], undefined);
+
   } finally {
     globalThis.fetch = originalFetch;
   }

@@ -7,9 +7,12 @@ export interface OdatanoMcpConfig {
   /** Base URL of the ODATANO host app, e.g. http://localhost:4004 */
   baseUrl: string;
   /**
-   * Token credential. An `odat_...` value is reserved for the planned ODATANO
-   * agent-grant token (sent as `x-agent-token`, optionally alongside basic
-   * transport auth); anything else is sent as `Authorization: Bearer`.
+   * Token credential. The usual value is an ODATANO ACCESS gateway key
+   * (`oda_...`, base URL https://api.odatano.dev), sent as
+   * `Authorization: Bearer`; the gateway swaps in the agent grant. An
+   * `odat_...` agent-grant token goes as `x-agent-token` (direct ODATANO,
+   * optionally alongside basic transport auth); anything else is a plain
+   * bearer (XSUAA / `auth: jwt`).
    */
   token?: string;
   /** Basic-auth credentials for CAP mocked/dev auth (e.g. `alice`). */
