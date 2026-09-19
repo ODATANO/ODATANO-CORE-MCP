@@ -4,6 +4,20 @@ All notable changes to `@odatano/core-mcp` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-09-19
+
+### Changed
+
+- **The ODATANO ACCESS key (`oda_…`) is the documented credential.** Set
+  `ODATANO_BASE_URL=https://api.odatano.dev` and `ODATANO_TOKEN=oda_…`; the
+  key goes as a plain `Authorization: Bearer` and the gateway swaps in the
+  agent grant, meters the key in units and fronts both ODATANO and
+  NIGHTGATE. Get one at `POST https://api.odatano.dev/keys` (x402), from a
+  giveaway code, or by signing in at the console. An `odat_…` grant
+  (`x-agent-token`) still works against a direct ODATANO instance. No code
+  change: the client already sent a prefix-less token as a bearer; a test
+  now pins that header shape.
+
 ## [0.2.0] - 2026-08-16
 
 ### Changed

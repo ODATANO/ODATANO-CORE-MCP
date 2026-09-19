@@ -1,6 +1,6 @@
 {
   "name": "@odatano/core-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "MCP server exposing ODATANO (Cardano OData bridge, SAP CAP) to AI agents: reads, unsigned tx builds, signing handoff, submit",
   "license": "Apache-2.0",
   "publishConfig": {
