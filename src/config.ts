@@ -1,21 +1,22 @@
 /**
- * Server configuration, environment-driven so the same binary works for
- * local dev (CAP mocked auth against a `cds watch` instance) and for a
- * deployed ODATANO behind XSUAA / a reverse proxy (bearer token).
+ * Server configuration, environment-driven. The connection variables are the
+ * same for every ODATANO MCP server (ODATANO_ACCESS_*): one key from
+ * https://api.odatano.dev configures the Cardano and the Midnight server alike.
+ * A direct ODATANO instance (local `cds watch`, an own deployment) is reached
+ * by pointing ODATANO_ACCESS_URL at it.
  */
 export interface OdatanoMcpConfig {
-  /** Base URL of the ODATANO host app, e.g. http://localhost:4004 */
+  /** Base URL: the ODATANO ACCESS gateway (default https://api.odatano.dev) or a direct ODATANO host app. */
   baseUrl: string;
   /**
-   * Token credential. The usual value is an ODATANO ACCESS gateway key
-   * (`oda_...`, base URL https://api.odatano.dev), sent as
-   * `Authorization: Bearer`; the gateway swaps in the agent grant. An
-   * `odat_...` agent-grant token goes as `x-agent-token` (direct ODATANO,
-   * optionally alongside basic transport auth); anything else is a plain
-   * bearer (XSUAA / `auth: jwt`).
+   * ODATANO_ACCESS_KEY. The usual value is an ODATANO ACCESS key (`oda_...`),
+   * sent as `Authorization: Bearer`; the gateway swaps in the agent grant.
+   * Against a direct ODATANO instance an `odat_...` agent-grant token goes as
+   * `x-agent-token` (optionally alongside basic transport auth); anything
+   * else is a plain bearer (XSUAA / `auth: jwt`).
    */
   token?: string;
-  /** Basic-auth credentials for CAP mocked/dev auth (e.g. `alice`). */
+  /** ODATANO_ACCESS_USER / _PASSWORD: basic auth for a direct instance (CAP mocked/dev auth, e.g. `alice`); never for agents. */
   username?: string;
   password?: string;
   /** Prefix in front of the service names, default `/odata/v4`. */
@@ -54,15 +55,15 @@ function bool(raw: string | undefined): boolean {
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): OdatanoMcpConfig {
-  const baseUrl = (env.ODATANO_BASE_URL ?? 'http://localhost:4004').replace(/\/+$/, '');
+  const baseUrl = (env.ODATANO_ACCESS_URL || 'https://api.odatano.dev').replace(/\/+$/, '');
   let servicePrefix = env.ODATANO_SERVICE_PREFIX ?? '/odata/v4';
   if (!servicePrefix.startsWith('/')) servicePrefix = `/${servicePrefix}`;
   servicePrefix = servicePrefix.replace(/\/+$/, '');
   return {
     baseUrl,
-    token: env.ODATANO_TOKEN || undefined,
-    username: env.ODATANO_USERNAME || undefined,
-    password: env.ODATANO_PASSWORD || undefined,
+    token: env.ODATANO_ACCESS_KEY || undefined,
+    username: env.ODATANO_ACCESS_USER || undefined,
+    password: env.ODATANO_ACCESS_PASSWORD || undefined,
     servicePrefix,
     timeoutMs: positiveInt('ODATANO_TIMEOUT_MS', env.ODATANO_TIMEOUT_MS, 30000),
     maxRows: positiveInt('ODATANO_MCP_MAX_ROWS', env.ODATANO_MCP_MAX_ROWS, 50),

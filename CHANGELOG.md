@@ -4,6 +4,31 @@ All notable changes to `@odatano/core-mcp` are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-09-20
+
+### Changed (breaking)
+
+- **One connection env for both ODATANO MCP servers.** `ODATANO_ACCESS_URL`
+  (default `https://api.odatano.dev`, the gateway), `ODATANO_ACCESS_KEY`
+  (the `oda_…` key, or an `odat_…` grant / other bearer against a direct
+  instance) and `ODATANO_ACCESS_USER` / `ODATANO_ACCESS_PASSWORD` (basic
+  auth for a direct instance) replace `ODATANO_BASE_URL`, `ODATANO_TOKEN`,
+  `ODATANO_USERNAME` and `ODATANO_PASSWORD`; the old names are not read
+  any more. `@odatano/nightgate-mcp` 0.7.0 reads the same four, so an
+  `.mcp.json` needs one key for both chains and no URL.
+- **Gateway error bodies reach the agent.** The ODATANO ACCESS gateway
+  answers with `{ error: "<text>", ...detail }`; the client now keeps the
+  text as the message and hands the detail (`unitsLeft`, `price`, the
+  `topup` hint, `products`, `validUntil`, `retryAfterSeconds` from
+  `Retry-After`) through to the tool error, so a 402 says how to top up
+  instead of "request failed with HTTP 402".
+- **The hosted API is the documented default.** README: quick start with a
+  key from api.odatano.dev first, own instance second; the startup line
+  tells "operator services are closed on the gateway" (403 on the probe,
+  `serviceStatus()`) from "core < 2.0 or unreachable", and warns when the
+  gateway is the target and no key is set. Server version constant follows
+  the package.
+
 ## [0.2.1] - 2026-09-19
 
 ### Changed

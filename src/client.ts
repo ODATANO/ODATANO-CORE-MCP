@@ -6,10 +6,32 @@ export class OdatanoApiError extends Error {
     public readonly status: number,
     public readonly code: string | undefined,
     message: string,
+    /** Extra fields of a gateway error body (unitsLeft, price, topup, products, validUntil, retryAfterSeconds). */
+    public readonly detail?: Record<string, unknown>,
   ) {
     super(message);
     this.name = 'OdatanoApiError';
   }
+}
+
+/**
+ * Two error shapes reach the client: CAP's `{ error: { code, message } }`
+ * from ODATANO itself, and the ODATANO ACCESS gateway's `{ error: "<text>",
+ * ...detail }` (401 key problems, 402 units exhausted with a top-up hint,
+ * 403 closed service or product not on the key, 429 with Retry-After).
+ */
+export function apiError(status: number, payload: unknown, headers: Headers, fallback: string): OdatanoApiError {
+  const body = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
+  const err = body.error;
+  if (typeof err === 'string') {
+    const { error: _e, ...rest } = body;
+    const detail: Record<string, unknown> = { ...rest };
+    const retry = headers.get('retry-after');
+    if (retry) detail.retryAfterSeconds = Number(retry);
+    return new OdatanoApiError(status, undefined, err, Object.keys(detail).length ? detail : undefined);
+  }
+  const e = (err ?? {}) as { code?: string; message?: string };
+  return new OdatanoApiError(status, e.code, e.message ?? fallback);
 }
 
 /** OData system query options accepted by {@link OdatanoClient.queryEntity}. */
@@ -83,10 +105,12 @@ export class OdatanoClient {
 
   /**
    * Cheap capability probe: does `<service>/$metadata` answer 200? Used at
-   * startup to register the v2.0 worker/indexer tools only when the host
-   * actually serves them.
+   * startup to register the v2.0 worker/indexer tools only when they are
+   * reachable. `closed` = the ODATANO ACCESS gateway answers 403 (operator
+   * services are not offered through the key), `absent` = 404 or no answer
+   * (core < 2.0, unreachable).
    */
-  async serviceExists(service: ServiceKey): Promise<boolean> {
+  async serviceStatus(service: ServiceKey): Promise<'served' | 'closed' | 'absent'> {
     try {
       const response = await fetch(`${this.serviceUrl(service)}/$metadata`, {
         method: 'GET',
@@ -95,10 +119,15 @@ export class OdatanoClient {
       });
       // Consume the body so the socket is released.
       await response.arrayBuffer().catch(() => undefined);
-      return response.ok;
+      if (response.ok) return 'served';
+      return response.status === 403 ? 'closed' : 'absent';
     } catch {
-      return false;
+      return 'absent';
     }
+  }
+
+  async serviceExists(service: ServiceKey): Promise<boolean> {
+    return (await this.serviceStatus(service)) === 'served';
   }
 
   private headers(hasBody = false): Record<string, string> {
@@ -137,12 +166,7 @@ export class OdatanoClient {
     }
 
     if (!response.ok) {
-      const err = (payload as { error?: { code?: string; message?: string } }).error;
-      throw new OdatanoApiError(
-        response.status,
-        err?.code,
-        err?.message ?? `ODATANO request failed with HTTP ${response.status}`,
-      );
+      throw apiError(response.status, payload, response.headers, `ODATANO request failed with HTTP ${response.status}`);
     }
     return stripODataNoise(payload);
   }

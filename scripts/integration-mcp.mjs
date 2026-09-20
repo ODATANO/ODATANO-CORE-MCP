@@ -5,7 +5,7 @@
  * the v2.0 tool set) is present with schemas, and that malformed arguments
  * are rejected before any HTTP call.
  *
- * Live mode (optional): set ODATANO_LIVE=1 plus ODATANO_BASE_URL and
+ * Live mode (optional): set ODATANO_LIVE=1 plus ODATANO_ACCESS_URL and
  * credentials to round-trip reads (and one unsigned build) against a running
  * ODATANO on preview using the well-known fixtures. Nothing is submitted.
  */

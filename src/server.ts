@@ -3,7 +3,7 @@ import { OdatanoClient } from './client.js';
 import type { OdatanoMcpConfig } from './config.js';
 import { registerTools, type Capabilities } from './tools/index.js';
 
-export const SERVER_VERSION = '0.1.0';
+export const SERVER_VERSION = '0.3.0';
 
 /**
  * Probe which optional (v2.0) services the host serves. Both probes run in
@@ -12,10 +12,10 @@ export const SERVER_VERSION = '0.1.0';
  */
 export async function detectCapabilities(client: OdatanoClient): Promise<Capabilities> {
   const [worker, indexer] = await Promise.all([
-    client.serviceExists('worker'),
-    client.serviceExists('indexer'),
+    client.serviceStatus('worker'),
+    client.serviceStatus('indexer'),
   ]);
-  return { worker, indexer };
+  return { worker: worker === 'served', indexer: indexer === 'served', closed: worker === 'closed' || indexer === 'closed' };
 }
 
 /**

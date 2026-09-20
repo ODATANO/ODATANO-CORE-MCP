@@ -7,7 +7,7 @@ import type { ToolContext } from './shared.js';
 import { registerSignTools } from './sign.js';
 import { registerWorkerTools } from './worker.js';
 
-export type Capabilities = QueryCapabilities;
+export type Capabilities = QueryCapabilities & { /** True when a probe was refused with 403: the ODATANO ACCESS gateway keeps operator services closed. */ closed?: boolean };
 
 /**
  * Register the tool catalogue. Reads, generic query, unsigned builds and the

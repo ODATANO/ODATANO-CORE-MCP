@@ -51,7 +51,7 @@ export function makeRunner(ctx: ToolContext) {
             const body = { alreadySubmitted: true, httpStatus: 409, code: err.code, message: err.message };
             return { content: [{ type: 'text', text: JSON.stringify(body, null, 2) }] };
           }
-          const detail = { httpStatus: err.status, code: err.code ?? null, message: err.message };
+          const detail = { httpStatus: err.status, code: err.code ?? null, message: err.message, ...(err.detail ?? {}) };
           return { content: [{ type: 'text', text: JSON.stringify(detail, null, 2) }], isError: true };
         }
         const message = err instanceof Error ? err.message : String(err);

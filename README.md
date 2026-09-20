@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://cdn.jsdelivr.net/npm/@odatano/brand@1/logos/odatano-mcp-logo-on-dark.svg">
+    <img src="https://cdn.jsdelivr.net/npm/@odatano/brand@1/logos/odatano-mcp-logo.svg" alt="ODATANO MCP" height="84">
+  </picture>
+</p>
+
 # @odatano/core-mcp
 
 [![npm](https://img.shields.io/npm/v/@odatano/core-mcp)](https://www.npmjs.com/package/@odatano/core-mcp)
@@ -20,16 +27,55 @@ HSM signing (`SignWithHsm*`) and every Admin operation (crawler / worker
 pause & resume) are deliberately not exposed. Wallet-worker jobs (ODATANO
 2.0, server-managed wallets) are opt-in.
 
+## Quick start: the hosted API
+
+The usual way to run this server is against the hosted ODATANO ACCESS
+gateway at [api.odatano.dev](https://api.odatano.dev): no node, no plugin,
+no wallet of your own. One `oda_…` key covers Cardano (this server) and
+Midnight (`@odatano/nightgate-mcp`).
+
+1. Get a key at [api.odatano.dev](https://api.odatano.dev): sign in with a
+   Cardano wallet (the first key comes with free calls), redeem a giveaway
+   code, or buy a pack with tADA over x402 (`POST /keys`). The console shows
+   the key once, together with a ready `.mcp.json`.
+2. Put the key in your MCP client's config:
+
+   ```json
+   {
+     "mcpServers": {
+       "odatano": {
+         "command": "npx",
+         "args": ["-y", "@odatano/core-mcp"],
+         "env": { "ODATANO_ACCESS_KEY": "oda_..." }
+       }
+     }
+   }
+   ```
+
+   or, with Claude Code: `claude mcp add odatano --env ODATANO_ACCESS_KEY=oda_... -- npx -y @odatano/core-mcp`
+
+3. That is all: the gateway is the default URL. It sends the key as
+   `Authorization: Bearer`, swaps in the agent grant underneath and meters
+   the key per call (metadata and lookups of the service documents are free).
+   The hosted ODATANO runs on Cardano **preprod** today.
+
+What the gateway does not offer, this server does not register: the
+operator services (`cardano-worker`, `cardano-indexer`, agent grants) and
+HSM signing answer 403 there, so the catalogue is the 36 core tools. A 402
+from the gateway (units exhausted) reaches the agent with the top-up hint.
+
 ## Requirements
 
-- Node.js >= 20
-- A running ODATANO host (`@odatano/core` >= 1.11.0; the worker / indexer
-  tools appear automatically on >= 2.0.0-rc.1). **2.0.0-rc.3 or newer is
-  recommended** — earlier versions drop `$expand` / `$select` on keyed reads
-  (rc.2) and can answer a keyed read with a row the query excludes (rc.3);
-  `get_transaction` works around the former, the latter has no workaround.
+- Node.js >= 20 (`npx` fetches the server, nothing to install)
 
-## Getting an ODATANO instance
+## Run your own instance (optional)
+
+Point `ODATANO_ACCESS_URL` at any ODATANO host app instead of the gateway:
+`@odatano/core` >= 1.11.0; the worker / indexer tools appear automatically
+on >= 2.0.0-rc.1, and **2.0.0-rc.3 or newer is recommended** (earlier
+versions drop `$expand` / `$select` on keyed reads (rc.2) and can answer a
+keyed read with a row the query excludes (rc.3); `get_transaction` works
+around the former, the latter has no workaround).
 
 The fastest way is the official Docker image (published from the ODATANO
 repo on every release; details in its `docs/guides/DOCKER_DEPLOYMENT.md`):
@@ -44,22 +90,27 @@ docker run -d --name odatano -p 4004:4004 \
 
 Alternatively any CAP app using the `@odatano/core` plugin works
 (`npm i @odatano/core @cap-js/sqlite`, add `cds.requires.odatano-core`,
-`cds watch`), e.g. the ODATANO repo itself.
+`cds watch`), e.g. the ODATANO repo itself. Then:
 
-## Setup
+```bash
+ODATANO_ACCESS_URL=http://localhost:4004
+ODATANO_ACCESS_USER=alice            # CAP mocked auth, or an odat_… agent grant as ODATANO_ACCESS_KEY
+```
+
+## Development setup
 
 ```bash
 npm install
 npm run build
 ```
 
-Configuration is environment-driven:
+Configuration is environment-driven (the same variables in an MCP client's `env` block):
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ODATANO_BASE_URL` | `http://localhost:4004` | ODATANO host app, or the ODATANO ACCESS gateway (`https://api.odatano.dev`) |
-| `ODATANO_TOKEN` | unset | **The usual credential: an ODATANO ACCESS key `oda_…`** (sent as `Authorization: Bearer`; buy one at `POST https://api.odatano.dev/keys`, redeem a code, or sign in at the console). An `odat_…` agent-grant token (sent as `x-agent-token`) works against a direct ODATANO instance; anything else is sent as a plain bearer (XSUAA / `auth: jwt`) |
-| `ODATANO_USERNAME` / `ODATANO_PASSWORD` | unset | Basic auth, operator or CAP mocked/dev auth (e.g. `alice`); not for agents |
+| `ODATANO_ACCESS_URL` | `https://api.odatano.dev` | The ODATANO ACCESS gateway, or a direct ODATANO host app (`http://localhost:4004` for `cds watch`) |
+| `ODATANO_ACCESS_KEY` | unset | **The credential: an ODATANO ACCESS key `oda_…`** (sent as `Authorization: Bearer`; buy one at `POST https://api.odatano.dev/keys`, redeem a code, or sign in at the console). The same variable configures `@odatano/nightgate-mcp`. Against a direct ODATANO instance an `odat_…` agent-grant token (sent as `x-agent-token`) or any other bearer (XSUAA / `auth: jwt`) goes here too |
+| `ODATANO_ACCESS_USER` / `ODATANO_ACCESS_PASSWORD` | unset | Basic auth against a direct instance, operator or CAP mocked/dev auth (e.g. `alice`); not for agents |
 | `ODATANO_SERVICE_PREFIX` | `/odata/v4` | Prefix before `cardano-odata`, `cardano-transaction`, `cardano-sign`, `cardano-worker`, `cardano-indexer` |
 | `ODATANO_TIMEOUT_MS` | `30000` | Per-request timeout |
 | `ODATANO_MCP_MAX_ROWS` | `50` | Default `$top` for `query_entity` and cap on arrays in tool output |
@@ -68,32 +119,6 @@ Configuration is environment-driven:
 At startup the server probes `<prefix>/cardano-worker/$metadata` and
 `<prefix>/cardano-indexer/$metadata`; the 2.0 tools are registered only when
 those services exist, so a 1.x host gets a clean 36-tool catalogue.
-
-## Use with Claude Code
-
-```bash
-claude mcp add odatano \
-  --env ODATANO_BASE_URL=http://localhost:4004 \
-  --env ODATANO_USERNAME=alice \
-  -- npx -y @odatano/core-mcp
-```
-
-Or in a project `.mcp.json`:
-
-```json
-{
-  "mcpServers": {
-    "odatano": {
-      "command": "npx",
-      "args": ["-y", "@odatano/core-mcp"],
-      "env": {
-        "ODATANO_BASE_URL": "http://localhost:4004",
-        "ODATANO_USERNAME": "alice"
-      }
-    }
-  }
-}
-```
 
 ## Tools
 
@@ -142,7 +167,7 @@ Every build returns `{ id, unsignedTxCbor, fee, … }` — **nothing is signed o
 | `submit_verified_transaction` | Verify + submit for a signing request (`deferSubmit` supported) |
 | `get_submission_status` | Submission state, optionally re-checking the chain |
 
-### ODATANO 2.0 (registered when the host serves them)
+### ODATANO 2.0 (registered when the target serves them; closed on the gateway)
 
 | Tool | What it does |
 |---|---|
@@ -172,7 +197,7 @@ call. Optional live round-trip on preview (reads only; add
 `ODATANO_TEST_BUILD=1` for one unsigned build that is parsed, never submitted):
 
 ```bash
-ODATANO_LIVE=1 ODATANO_BASE_URL=http://localhost:4004 ODATANO_USERNAME=alice \
+ODATANO_LIVE=1 ODATANO_ACCESS_URL=http://localhost:4004 ODATANO_ACCESS_USER=alice \
 npm run integration
 ```
 

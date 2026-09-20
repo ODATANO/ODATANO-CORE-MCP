@@ -25,11 +25,11 @@ test('stripODataNoise drops @odata.* but keeps @odata.count as count', () => {
 
 test('loadConfig defaults + prefix normalisation + validation', () => {
   const c = loadConfig({});
-  assert.equal(c.baseUrl, 'http://localhost:4004');
+  assert.equal(c.baseUrl, 'https://api.odatano.dev');
   assert.equal(c.servicePrefix, '/odata/v4');
   assert.equal(c.maxRows, 50);
   assert.equal(c.enableWalletJobs, false);
-  const d = loadConfig({ ODATANO_BASE_URL: 'https://h/', ODATANO_SERVICE_PREFIX: 'api/', ODATANO_MCP_ENABLE_WALLET_JOBS: 'true' });
+  const d = loadConfig({ ODATANO_ACCESS_URL: 'https://h/', ODATANO_SERVICE_PREFIX: 'api/', ODATANO_MCP_ENABLE_WALLET_JOBS: 'true' });
   assert.equal(d.baseUrl, 'https://h');
   assert.equal(d.servicePrefix, '/api');
   assert.equal(d.enableWalletJobs, true);
@@ -52,7 +52,7 @@ test('OdatanoClient builds service URLs, auth headers and surfaces OData errors'
     return new Response(JSON.stringify({ '@odata.context': 'c', hash: 'h' }), { status: 200 });
   }) as typeof fetch;
   try {
-    const client = new OdatanoClient(loadConfig({ ODATANO_USERNAME: 'alice', ODATANO_TOKEN: 'odat_abc' }));
+    const client = new OdatanoClient(loadConfig({ ODATANO_ACCESS_URL: 'http://localhost:4004', ODATANO_ACCESS_USER: 'alice', ODATANO_ACCESS_KEY: 'odat_abc' }));
     const ok = await client.callAction('odata', 'GetLatestBlock', { skip: undefined, keep: 1 });
     assert.deepEqual(ok, { hash: 'h' });
     assert.equal(seen[0].url, 'http://localhost:4004/odata/v4/cardano-odata/GetLatestBlock');
@@ -76,7 +76,7 @@ test('OdatanoClient builds service URLs, auth headers and surfaces OData errors'
       (err: unknown) => err instanceof OdatanoApiError && err.status === 404 && err.code === 'ODATANO_NOT_FOUND',
     );
     // An ODATANO ACCESS key (oda_…) is a plain bearer: the gateway resolves the grant underneath.
-    const viaGateway = new OdatanoClient(loadConfig({ ODATANO_BASE_URL: 'https://api.odatano.dev', ODATANO_TOKEN: 'oda_' + 'f'.repeat(40) }));
+    const viaGateway = new OdatanoClient(loadConfig({ ODATANO_ACCESS_KEY: 'oda_' + 'f'.repeat(40) }));
     await viaGateway.callAction('odata', 'GetLatestBlock', { keep: 1 });
     const gw = seen[seen.length - 1];
     assert.equal(gw.url, 'https://api.odatano.dev/odata/v4/cardano-odata/GetLatestBlock');
@@ -96,8 +96,51 @@ test('bearer token is used when the token is not an agent grant', async () => {
     return new Response('{}', { status: 200 });
   }) as typeof fetch;
   try {
-    await new OdatanoClient(loadConfig({ ODATANO_TOKEN: 'eyJhbGciOi' })).callAction('odata', 'GetLatestBlock');
+    await new OdatanoClient(loadConfig({ ODATANO_ACCESS_KEY: 'eyJhbGciOi' })).callAction('odata', 'GetLatestBlock');
     assert.equal(auth, 'Bearer eyJhbGciOi');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('gateway error bodies keep their text and detail (402 units exhausted, 429 Retry-After)', async () => {
+  const originalFetch = globalThis.fetch;
+  let n = 0;
+  globalThis.fetch = (async () => {
+    n += 1;
+    if (n === 1) {
+      const body = { error: 'units exhausted', key: 'oda_5c71c95b', price: 1, unitsLeft: 0, action: 'GetLatestBlock', topup: { hint: 'buy a pack with x402 at POST /topup, redeem a giveaway code at POST /codes/redeem, or ask the operator for a top-up', codes: 'https://api.odatano.dev/codes/redeem' } };
+      return new Response(JSON.stringify(body), { status: 402, headers: { 'content-type': 'application/json' } });
+    }
+    return new Response(JSON.stringify({ error: 'rate limited' }), { status: 429, headers: { 'retry-after': '7' } });
+  }) as typeof fetch;
+  try {
+    const client = new OdatanoClient(loadConfig({ ODATANO_ACCESS_KEY: 'oda_' + 'f'.repeat(40) }));
+    await assert.rejects(
+      client.callAction('odata', 'GetLatestBlock'),
+      (err: unknown) => err instanceof OdatanoApiError && err.status === 402 && err.message === 'units exhausted' && err.code === undefined
+        && err.detail?.unitsLeft === 0 && (err.detail?.topup as { hint: string }).hint.startsWith('buy a pack'),
+    );
+    await assert.rejects(
+      client.callAction('odata', 'GetLatestBlock'),
+      (err: unknown) => err instanceof OdatanoApiError && err.status === 429 && err.message === 'rate limited' && err.detail?.retryAfterSeconds === 7,
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('serviceStatus tells served / closed (gateway 403) / absent apart', async () => {
+  const originalFetch = globalThis.fetch;
+  const answers: number[] = [200, 403, 404];
+  globalThis.fetch = (async () => new Response('', { status: answers.shift() ?? 500 })) as typeof fetch;
+  try {
+    const client = new OdatanoClient(loadConfig({ ODATANO_ACCESS_KEY: 'oda_' + 'f'.repeat(40) }));
+    assert.equal(await client.serviceStatus('worker'), 'served');
+    assert.equal(await client.serviceStatus('worker'), 'closed');
+    assert.equal(await client.serviceStatus('indexer'), 'absent');
+    globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch;
+    assert.equal(await client.serviceStatus('indexer'), 'absent');
   } finally {
     globalThis.fetch = originalFetch;
   }
