@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildQueryString, OdatanoApiError, OdatanoClient, odataLiteral, stripODataNoise } from './client.js';
 import { loadConfig } from './config.js';
+import { sinceDay } from './tools/analytics.js';
 
 test('odataLiteral quotes strings, escapes quotes, leaves numbers and GUIDs bare', () => {
   assert.equal(odataLiteral(5), '5');
@@ -25,7 +26,7 @@ test('stripODataNoise drops @odata.* but keeps @odata.count as count', () => {
 
 test('loadConfig defaults + prefix normalisation + validation', () => {
   const c = loadConfig({});
-  assert.equal(c.baseUrl, 'https://api.odatano.dev');
+  assert.equal(c.baseUrl, 'https://api.preprod.odatano.dev');
   assert.equal(c.servicePrefix, '/odata/v4');
   assert.equal(c.maxRows, 50);
   assert.equal(c.enableWalletJobs, false);
@@ -79,7 +80,7 @@ test('OdatanoClient builds service URLs, auth headers and surfaces OData errors'
     const viaGateway = new OdatanoClient(loadConfig({ ODATANO_ACCESS_KEY: 'oda_' + 'f'.repeat(40) }));
     await viaGateway.callAction('odata', 'GetLatestBlock', { keep: 1 });
     const gw = seen[seen.length - 1];
-    assert.equal(gw.url, 'https://api.odatano.dev/odata/v4/cardano-odata/GetLatestBlock');
+    assert.equal(gw.url, 'https://api.preprod.odatano.dev/odata/v4/cardano-odata/GetLatestBlock');
     assert.equal(gw.headers.Authorization, 'Bearer oda_' + 'f'.repeat(40));
     assert.equal(gw.headers['x-agent-token'], undefined);
 
@@ -109,7 +110,7 @@ test('gateway error bodies keep their text and detail (402 units exhausted, 429 
   globalThis.fetch = (async () => {
     n += 1;
     if (n === 1) {
-      const body = { error: 'units exhausted', key: 'oda_5c71c95b', price: 1, unitsLeft: 0, action: 'GetLatestBlock', topup: { hint: 'buy a pack with x402 at POST /topup, redeem a giveaway code at POST /codes/redeem, or ask the operator for a top-up', codes: 'https://api.odatano.dev/codes/redeem' } };
+      const body = { error: 'units exhausted', key: 'oda_5c71c95b', price: 1, unitsLeft: 0, action: 'GetLatestBlock', topup: { hint: 'buy a pack with x402 at POST /topup, redeem a giveaway code at POST /codes/redeem, or ask the operator for a top-up', codes: 'https://api.preprod.odatano.dev/codes/redeem' } };
       return new Response(JSON.stringify(body), { status: 402, headers: { 'content-type': 'application/json' } });
     }
     return new Response(JSON.stringify({ error: 'rate limited' }), { status: 429, headers: { 'retry-after': '7' } });
@@ -141,6 +142,32 @@ test('serviceStatus tells served / closed (gateway 403) / absent apart', async (
     assert.equal(await client.serviceStatus('indexer'), 'absent');
     globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch;
     assert.equal(await client.serviceStatus('indexer'), 'absent');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('analytics: ODATANO ASTRA on the same host, its own path, its own probe', async () => {
+  const seen: string[] = [];
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = (async (url: string | URL) => {
+    seen.push(String(url));
+    if (String(url).endsWith('/$metadata')) return new Response('', { status: 403 });
+    return new Response(JSON.stringify({ '@odata.context': 'c', value: [{ chain: 'cardano' }] }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    const client = new OdatanoClient(loadConfig({ ODATANO_ACCESS_KEY: 'oda_' + 'f'.repeat(40) }));
+    assert.equal(client.analyticsUrl(), 'https://api.preprod.odatano.dev/odata/v4/astra');
+    const out = await client.analyticsQuery('KeyFigures', { filter: "chain eq 'cardano' and window eq '7d'", orderby: 'metric' });
+    assert.deepEqual(out, { value: [{ chain: 'cardano' }] });
+    assert.equal(seen[0], "https://api.preprod.odatano.dev/odata/v4/astra/KeyFigures?$filter=chain%20eq%20'cardano'%20and%20window%20eq%20'7d'&$orderby=metric");
+    await client.analyticsFunction('getWindow', { chain: 'cardano', metric: 'tx.count', window: '24h' });
+    assert.equal(seen[1], "https://api.preprod.odatano.dev/odata/v4/astra/getWindow(chain='cardano',metric='tx.count',window='24h')");
+    assert.equal(await client.analyticsStatus(), 'closed');
+    assert.equal(loadConfig({ ODATANO_ACCESS_URL: 'http://localhost:4004' }).analyticsUrl, 'http://localhost:4004/odata/v4/astra');
+    assert.equal(loadConfig({ ODATANO_ANALYTICS_URL: 'http://localhost:4017/odata/v4/astra/' }).analyticsUrl, 'http://localhost:4017/odata/v4/astra');
+    assert.equal(sinceDay(1, Date.UTC(2026, 8, 23, 10)), '2026-09-23');
+    assert.equal(sinceDay(14, Date.UTC(2026, 8, 23, 10)), '2026-09-10');
   } finally {
     globalThis.fetch = originalFetch;
   }

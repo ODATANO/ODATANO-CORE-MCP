@@ -111,8 +111,39 @@ export class OdatanoClient {
    * (core < 2.0, unreachable).
    */
   async serviceStatus(service: ServiceKey): Promise<'served' | 'closed' | 'absent'> {
+    return this.probe(`${this.serviceUrl(service)}/$metadata`);
+  }
+
+  // ---- ODATANO ASTRA: analytics over the same index, same host, same key ----
+
+  /** Base URL of ODATANO ASTRA: the gateway's `/odata/v4/astra` unless ODATANO_ANALYTICS_URL says otherwise. */
+  analyticsUrl(): string {
+    return this.config.analyticsUrl;
+  }
+
+  /** GET <astra>/<Entity>?$filter=... â the ready-made views (KeyFigures, BlocksDaily, TopTokens, ...). */
+  async analyticsQuery(entity: string, query: EntityQuery = {}): Promise<unknown> {
+    return this.request('GET', `${this.analyticsUrl()}/${entity}${buildQueryString(query)}`);
+  }
+
+  /** GET <astra>/<name>(p1=...,p2=...) â getWindow, getSeries, compare, getAnomalies. */
+  async analyticsFunction(name: string, params: Record<string, string | number | undefined> = {}): Promise<unknown> {
+    const parts: string[] = [];
+    for (const [key, value] of Object.entries(params)) {
+      if (value === undefined || value === null || value === '') continue;
+      parts.push(`${key}=${odataLiteral(value)}`);
+    }
+    return this.request('GET', `${this.analyticsUrl()}/${name}(${parts.join(',')})`);
+  }
+
+  /** Does the host serve ODATANO ASTRA? Same three answers as serviceStatus. */
+  async analyticsStatus(): Promise<'served' | 'closed' | 'absent'> {
+    return this.probe(`${this.analyticsUrl()}/$metadata`);
+  }
+
+  private async probe(url: string): Promise<'served' | 'closed' | 'absent'> {
     try {
-      const response = await fetch(`${this.serviceUrl(service)}/$metadata`, {
+      const response = await fetch(url, {
         method: 'GET',
         headers: this.headers(),
         signal: AbortSignal.timeout(Math.min(this.config.timeoutMs, 10000)),

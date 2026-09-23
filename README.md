@@ -30,11 +30,11 @@ pause & resume) are deliberately not exposed. Wallet-worker jobs (ODATANO
 ## Quick start: the hosted API
 
 The usual way to run this server is against the hosted ODATANO ACCESS
-gateway at [api.odatano.dev](https://api.odatano.dev): no node, no plugin,
+gateway at [api.preprod.odatano.dev](https://api.preprod.odatano.dev): no node, no plugin,
 no wallet of your own. One `oda_…` key covers Cardano (this server) and
 Midnight (`@odatano/nightgate-mcp`).
 
-1. Get a key at [api.odatano.dev](https://api.odatano.dev): sign in with a
+1. Get a key at [api.preprod.odatano.dev](https://api.preprod.odatano.dev): sign in with a
    Cardano wallet (the first key comes with free calls), redeem a giveaway
    code, or buy a pack with tADA over x402 (`POST /keys`). The console shows
    the key once, together with a ready `.mcp.json`.
@@ -108,10 +108,11 @@ Configuration is environment-driven (the same variables in an MCP client's `env`
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ODATANO_ACCESS_URL` | `https://api.odatano.dev` | The ODATANO ACCESS gateway, or a direct ODATANO host app (`http://localhost:4004` for `cds watch`) |
-| `ODATANO_ACCESS_KEY` | unset | **The credential: an ODATANO ACCESS key `oda_…`** (sent as `Authorization: Bearer`; buy one at `POST https://api.odatano.dev/keys`, redeem a code, or sign in at the console). The same variable configures `@odatano/nightgate-mcp`. Against a direct ODATANO instance an `odat_…` agent-grant token (sent as `x-agent-token`) or any other bearer (XSUAA / `auth: jwt`) goes here too |
+| `ODATANO_ACCESS_URL` | `https://api.preprod.odatano.dev` | The ODATANO ACCESS gateway, or a direct ODATANO host app (`http://localhost:4004` for `cds watch`) |
+| `ODATANO_ACCESS_KEY` | unset | **The credential: an ODATANO ACCESS key `oda_…`** (sent as `Authorization: Bearer`; buy one at `POST https://api.preprod.odatano.dev/keys`, redeem a code, or sign in at the console). The same variable configures `@odatano/nightgate-mcp`. Against a direct ODATANO instance an `odat_…` agent-grant token (sent as `x-agent-token`) or any other bearer (XSUAA / `auth: jwt`) goes here too |
 | `ODATANO_ACCESS_USER` / `ODATANO_ACCESS_PASSWORD` | unset | Basic auth against a direct instance, operator or CAP mocked/dev auth (e.g. `alice`); not for agents |
 | `ODATANO_SERVICE_PREFIX` | `/odata/v4` | Prefix before `cardano-odata`, `cardano-transaction`, `cardano-sign`, `cardano-worker`, `cardano-indexer` |
+| `ODATANO_ANALYTICS_URL` | `<ODATANO_ACCESS_URL>/odata/v4/astra` | Absolute URL of ODATANO ASTRA (analytics). Nothing to set through the gateway; for an own deployment the URL of your ASTRA instance, which is its own app on its own port. The `analytics_*` tools register when it answers |
 | `ODATANO_TIMEOUT_MS` | `30000` | Per-request timeout |
 | `ODATANO_MCP_MAX_ROWS` | `50` | Default `$top` for `query_entity` and cap on arrays in tool output |
 | `ODATANO_MCP_ENABLE_WALLET_JOBS` | `false` | Register `submit_wallet_job` / `cancel_wallet_job` (server-managed wallets sign — see below) |
@@ -174,6 +175,23 @@ Every build returns `{ id, unsignedTxCbor, fee, … }` — **nothing is signed o
 | `get_sync_status` / `get_reorg_log` | Crawler / pre-sync status and reorg history (`CardanoIndexerService`) |
 | `get_worker_status` / `get_wallet_job_status` | Wallet-worker status and job polling (`CardanoWorkerService`) |
 | `submit_wallet_job` / `cancel_wallet_job` | **Opt-in** (`ODATANO_MCP_ENABLE_WALLET_JOBS=1`): queue a job that a server-managed wallet builds, signs, submits and confirms — this moves funds; use with a scoped credential only |
+
+### Analytics (ODATANO ASTRA, registered when the host serves it)
+
+Aggregates over the Cardano index, one unit per read, same key. Every tool pins the chain; the
+Midnight server carries the same tools for its chain.
+
+| Tool | What it does |
+|---|---|
+| `analytics_overview` | Network, tip, both lags, blocks and transactions of the last hour with change, fees of the last 24 h (total, median, p95), average block time |
+| `analytics_key_figures` | Every chain-wide metric over one window (`1h`, `24h`, `7d`, `14d`, `30d`): value, previous window, change in % |
+| `analytics_daily` | One row per UTC day: `blocks`, `transactions`, `fees` or `tokens`, newest first |
+| `analytics_top` | Rankings: `tokens`, `policies`, `addresses`, `scripts`, `blockProducers` over a window; `pools`, `dreps` from the newest epoch snapshot |
+| `analytics_epochs` | Pools, live stake, active DReps and voting power per epoch |
+| `analytics_metrics` | The metric catalogue: ids, kinds, units, descriptions |
+| `analytics_metric` / `analytics_series` | One metric over a window (value, previous, change, percentiles) / as a time series in the window's resolution |
+| `analytics_compare` | The same metric for Cardano and Midnight side by side |
+| `analytics_anomalies` | Days far from their own baseline, in standard deviations, with every number the verdict rests on |
 
 ## Errors
 
