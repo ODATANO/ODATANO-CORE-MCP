@@ -21,6 +21,8 @@ export interface OdatanoMcpConfig {
   password?: string;
   /** Prefix in front of the service names, default `/odata/v4`. */
   servicePrefix: string;
+  /** Service name per key; `odata` is ODATANO_ODATA_SERVICE (`cardano-odata` on an older host). */
+  services: Record<ServiceKey, string>;
   /**
    * Absolute URL of ODATANO ASTRA, the analytics service. Default `<baseUrl>/odata/v4/astra`,
    * which is where the gateway serves it; an own deployment sets ODATANO_ANALYTICS_URL to its
@@ -37,7 +39,7 @@ export interface OdatanoMcpConfig {
 
 /** ODATANO service names (path segments after the prefix). */
 export const SERVICES = {
-  odata: 'cardano-odata',
+  odata: 'cardano',
   transaction: 'cardano-transaction',
   sign: 'cardano-sign',
   worker: 'cardano-worker',
@@ -72,6 +74,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): OdatanoMcpConf
     username: env.ODATANO_ACCESS_USER || undefined,
     password: env.ODATANO_ACCESS_PASSWORD || undefined,
     servicePrefix,
+    services: { ...SERVICES, odata: env.ODATANO_ODATA_SERVICE || SERVICES.odata },
     analyticsUrl,
     timeoutMs: positiveInt('ODATANO_TIMEOUT_MS', env.ODATANO_TIMEOUT_MS, 30000),
     maxRows: positiveInt('ODATANO_MCP_MAX_ROWS', env.ODATANO_MCP_MAX_ROWS, 50),

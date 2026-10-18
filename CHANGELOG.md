@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-18
+
+Needs ODATANO 2.0.0-rc.40 on a direct host (the gateway serves both names).
+
+### Changed
+
+- **The read service is `cardano`**: tools call `<prefix>/cardano` instead of
+  `<prefix>/cardano-odata`. `ODATANO_ODATA_SERVICE=cardano-odata` keeps an
+  older direct host working.
+
 ## [0.4.0] - 2026-09-23
 
 ### Added

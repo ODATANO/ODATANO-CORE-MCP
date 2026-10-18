@@ -28,11 +28,13 @@ test('loadConfig defaults + prefix normalisation + validation', () => {
   const c = loadConfig({});
   assert.equal(c.baseUrl, 'https://api.preprod.odatano.dev');
   assert.equal(c.servicePrefix, '/odata/v4');
+  assert.equal(c.services.odata, 'cardano');
   assert.equal(c.maxRows, 50);
   assert.equal(c.enableWalletJobs, false);
-  const d = loadConfig({ ODATANO_ACCESS_URL: 'https://h/', ODATANO_SERVICE_PREFIX: 'api/', ODATANO_MCP_ENABLE_WALLET_JOBS: 'true' });
+  const d = loadConfig({ ODATANO_ACCESS_URL: 'https://h/', ODATANO_SERVICE_PREFIX: 'api/', ODATANO_ODATA_SERVICE: 'cardano-odata', ODATANO_MCP_ENABLE_WALLET_JOBS: 'true' });
   assert.equal(d.baseUrl, 'https://h');
   assert.equal(d.servicePrefix, '/api');
+  assert.equal(d.services.odata, 'cardano-odata');
   assert.equal(d.enableWalletJobs, true);
   assert.throws(() => loadConfig({ ODATANO_TIMEOUT_MS: '-1' }), /Invalid ODATANO_TIMEOUT_MS/);
 });
@@ -56,7 +58,7 @@ test('OdatanoClient builds service URLs, auth headers and surfaces OData errors'
     const client = new OdatanoClient(loadConfig({ ODATANO_ACCESS_URL: 'http://localhost:4004', ODATANO_ACCESS_USER: 'alice', ODATANO_ACCESS_KEY: 'odat_abc' }));
     const ok = await client.callAction('odata', 'GetLatestBlock', { skip: undefined, keep: 1 });
     assert.deepEqual(ok, { hash: 'h' });
-    assert.equal(seen[0].url, 'http://localhost:4004/odata/v4/cardano-odata/GetLatestBlock');
+    assert.equal(seen[0].url, 'http://localhost:4004/odata/v4/cardano/GetLatestBlock');
     assert.equal(seen[0].method, 'POST');
     assert.equal(seen[0].body, '{"keep":1}');
     assert.equal(seen[0].headers['x-agent-token'], 'odat_abc');
@@ -67,7 +69,7 @@ test('OdatanoClient builds service URLs, auth headers and surfaces OData errors'
     assert.equal(seen[1].method, 'GET');
 
     await client.queryEntity('odata', 'Blocks', { top: 2, orderby: 'height desc' });
-    assert.equal(seen[2].url, 'http://localhost:4004/odata/v4/cardano-odata/Blocks?$orderby=height%20desc&$top=2');
+    assert.equal(seen[2].url, 'http://localhost:4004/odata/v4/cardano/Blocks?$orderby=height%20desc&$top=2');
 
     await client.callBoundAction('transaction', 'TransactionSubmissions', '0f8fad5b-d9cb-469f-a165-70867728950e', 'CardanoTransactionService.CheckSubmissionStatus');
     assert.equal(seen[3].url, 'http://localhost:4004/odata/v4/cardano-transaction/TransactionSubmissions(0f8fad5b-d9cb-469f-a165-70867728950e)/CardanoTransactionService.CheckSubmissionStatus');
@@ -80,7 +82,7 @@ test('OdatanoClient builds service URLs, auth headers and surfaces OData errors'
     const viaGateway = new OdatanoClient(loadConfig({ ODATANO_ACCESS_KEY: 'oda_' + 'f'.repeat(40) }));
     await viaGateway.callAction('odata', 'GetLatestBlock', { keep: 1 });
     const gw = seen[seen.length - 1];
-    assert.equal(gw.url, 'https://api.preprod.odatano.dev/odata/v4/cardano-odata/GetLatestBlock');
+    assert.equal(gw.url, 'https://api.preprod.odatano.dev/odata/v4/cardano/GetLatestBlock');
     assert.equal(gw.headers.Authorization, 'Bearer oda_' + 'f'.repeat(40));
     assert.equal(gw.headers['x-agent-token'], undefined);
 

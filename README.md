@@ -9,7 +9,7 @@
 
 [![npm](https://img.shields.io/npm/v/@odatano/core-mcp)](https://www.npmjs.com/package/@odatano/core-mcp)
 [![npm downloads](https://img.shields.io/npm/dt/@odatano/core-mcp?logo=npm&label=downloads&color=blue)](https://www.npmjs.com/package/@odatano/core-mcp)
-[![ODATANO](https://img.shields.io/badge/ODATANO-%3E%3D%201.11.0%20(2.0.0--rc.3%2B%20recommended)-0C5ECF)](https://www.npmjs.com/package/@odatano/core)
+[![ODATANO](https://img.shields.io/badge/ODATANO-%3E%3D%201.11.0%20(2.0.0--rc.40%2B%20recommended)-0C5ECF)](https://www.npmjs.com/package/@odatano/core)
 [![MCP](https://img.shields.io/badge/MCP-server-2ea44f)](https://modelcontextprotocol.io/)
 [![Node](https://img.shields.io/badge/node-%3E%3D%2020-brightgreen?logo=node.js)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-yellow)](LICENSE)
@@ -75,7 +75,9 @@ Point `ODATANO_ACCESS_URL` at any ODATANO host app instead of the gateway:
 on >= 2.0.0-rc.1, and **2.0.0-rc.3 or newer is recommended** (earlier
 versions drop `$expand` / `$select` on keyed reads (rc.2) and can answer a
 keyed read with a row the query excludes (rc.3); `get_transaction` works
-around the former, the latter has no workaround).
+around the former, the latter has no workaround). The read service is
+`cardano` from 2.0.0-rc.40 on; an older host serves it as `cardano-odata`,
+set `ODATANO_ODATA_SERVICE=cardano-odata` there.
 
 The fastest way is the official Docker image (published from the ODATANO
 repo on every release; details in its `docs/guides/DOCKER_DEPLOYMENT.md`):
@@ -111,7 +113,8 @@ Configuration is environment-driven (the same variables in an MCP client's `env`
 | `ODATANO_ACCESS_URL` | `https://api.preprod.odatano.dev` | The ODATANO ACCESS gateway, or a direct ODATANO host app (`http://localhost:4004` for `cds watch`) |
 | `ODATANO_ACCESS_KEY` | unset | **The credential: an ODATANO ACCESS key `oda_…`** (sent as `Authorization: Bearer`; buy one at `POST https://api.preprod.odatano.dev/keys`, redeem a code, or sign in at the console). The same variable configures `@odatano/nightgate-mcp`. Against a direct ODATANO instance an `odat_…` agent-grant token (sent as `x-agent-token`) or any other bearer (XSUAA / `auth: jwt`) goes here too |
 | `ODATANO_ACCESS_USER` / `ODATANO_ACCESS_PASSWORD` | unset | Basic auth against a direct instance, operator or CAP mocked/dev auth (e.g. `alice`); not for agents |
-| `ODATANO_SERVICE_PREFIX` | `/odata/v4` | Prefix before `cardano-odata`, `cardano-transaction`, `cardano-sign`, `cardano-worker`, `cardano-indexer` |
+| `ODATANO_SERVICE_PREFIX` | `/odata/v4` | Prefix before `cardano`, `cardano-transaction`, `cardano-sign`, `cardano-worker`, `cardano-indexer` |
+| `ODATANO_ODATA_SERVICE` | `cardano` | Name of the read service (CardanoODataService); `cardano-odata` for a direct host below 2.0.0-rc.40 |
 | `ODATANO_ANALYTICS_URL` | `<ODATANO_ACCESS_URL>/odata/v4/astra` | Absolute URL of ODATANO ASTRA (analytics). Nothing to set through the gateway; for an own deployment the URL of your ASTRA instance, which is its own app on its own port. The `analytics_*` tools register when it answers |
 | `ODATANO_TIMEOUT_MS` | `30000` | Per-request timeout |
 | `ODATANO_MCP_MAX_ROWS` | `50` | Default `$top` for `query_entity` and cap on arrays in tool output |

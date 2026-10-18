@@ -1,4 +1,4 @@
-import { SERVICES, type OdatanoMcpConfig, type ServiceKey } from './config.js';
+import { type OdatanoMcpConfig, type ServiceKey } from './config.js';
 
 /** Error carrying the OData error body of a failed ODATANO call. */
 export class OdatanoApiError extends Error {
@@ -56,7 +56,7 @@ export class OdatanoClient {
   constructor(private readonly config: OdatanoMcpConfig) {}
 
   serviceUrl(service: ServiceKey): string {
-    return `${this.config.baseUrl}${this.config.servicePrefix}/${SERVICES[service]}`;
+    return `${this.config.baseUrl}${this.config.servicePrefix}/${this.config.services[service]}`;
   }
 
   /** POST <service>/<name> with the provided parameters as JSON body (undefined dropped). */
