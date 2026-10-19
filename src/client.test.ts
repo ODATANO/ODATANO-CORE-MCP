@@ -159,15 +159,15 @@ test('analytics: ODATANO ASTRA on the same host, its own path, its own probe', a
   }) as typeof fetch;
   try {
     const client = new OdatanoClient(loadConfig({ ODATANO_ACCESS_KEY: 'oda_' + 'f'.repeat(40) }));
-    assert.equal(client.analyticsUrl(), 'https://api.preprod.odatano.dev/odata/v4/astra');
+    assert.equal(client.analyticsUrl(), 'https://api.preprod.odatano.dev/odata/v4/analytics');
     const out = await client.analyticsQuery('KeyFigures', { filter: "chain eq 'cardano' and window eq '7d'", orderby: 'metric' });
     assert.deepEqual(out, { value: [{ chain: 'cardano' }] });
-    assert.equal(seen[0], "https://api.preprod.odatano.dev/odata/v4/astra/KeyFigures?$filter=chain%20eq%20'cardano'%20and%20window%20eq%20'7d'&$orderby=metric");
+    assert.equal(seen[0], "https://api.preprod.odatano.dev/odata/v4/analytics/KeyFigures?$filter=chain%20eq%20'cardano'%20and%20window%20eq%20'7d'&$orderby=metric");
     await client.analyticsFunction('getWindow', { chain: 'cardano', metric: 'tx.count', window: '24h' });
-    assert.equal(seen[1], "https://api.preprod.odatano.dev/odata/v4/astra/getWindow(chain='cardano',metric='tx.count',window='24h')");
+    assert.equal(seen[1], "https://api.preprod.odatano.dev/odata/v4/analytics/getWindow(chain='cardano',metric='tx.count',window='24h')");
     assert.equal(await client.analyticsStatus(), 'closed');
-    assert.equal(loadConfig({ ODATANO_ACCESS_URL: 'http://localhost:4004' }).analyticsUrl, 'http://localhost:4004/odata/v4/astra');
-    assert.equal(loadConfig({ ODATANO_ANALYTICS_URL: 'http://localhost:4017/odata/v4/astra/' }).analyticsUrl, 'http://localhost:4017/odata/v4/astra');
+    assert.equal(loadConfig({ ODATANO_ACCESS_URL: 'http://localhost:4004' }).analyticsUrl, 'http://localhost:4004/odata/v4/analytics');
+    assert.equal(loadConfig({ ODATANO_ANALYTICS_URL: 'http://localhost:4017/odata/v4/analytics/' }).analyticsUrl, 'http://localhost:4017/odata/v4/analytics');
     assert.equal(sinceDay(1, Date.UTC(2026, 8, 23, 10)), '2026-09-23');
     assert.equal(sinceDay(14, Date.UTC(2026, 8, 23, 10)), '2026-09-10');
   } finally {

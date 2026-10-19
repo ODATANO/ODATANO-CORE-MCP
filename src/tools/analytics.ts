@@ -4,7 +4,7 @@ import { makeRunner, type ToolContext } from './shared.js';
 
 /*
  * Analytics over the Cardano index, served by ODATANO ASTRA through the same
- * gateway and the same key (`/odata/v4/astra`, 1 unit per read). Every tool
+ * gateway and the same key (`/odata/v4/analytics`, 1 unit per read). Every tool
  * pins `chain eq 'cardano'`; the Midnight server (@odatano/nightgate-mcp)
  * carries the same tools for its chain, and `analytics_compare` puts both side
  * by side from either. Registered only when the gateway serves ASTRA.

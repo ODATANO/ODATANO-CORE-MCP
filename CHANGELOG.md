@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-19
+
+Analytics under `/odata/v4/analytics` (the gateway serves both names).
+
+### Changed
+
+- **The analytics URL defaults to `<ODATANO_ACCESS_URL>/odata/v4/analytics`**
+  instead of `…/odata/v4/astra`. An ASTRA instance that still serves
+  `/odata/v4/astra` needs `ODATANO_ANALYTICS_URL` set to that path.
+
 ## [0.5.0] - 2026-10-18
 
 Needs ODATANO 2.0.0-rc.40 on a direct host (the gateway serves both names).

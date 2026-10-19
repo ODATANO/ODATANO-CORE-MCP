@@ -24,7 +24,7 @@ export interface OdatanoMcpConfig {
   /** Service name per key; `odata` is ODATANO_ODATA_SERVICE (`cardano-odata` on an older host). */
   services: Record<ServiceKey, string>;
   /**
-   * Absolute URL of ODATANO ASTRA, the analytics service. Default `<baseUrl>/odata/v4/astra`,
+   * Absolute URL of ODATANO ASTRA, the analytics service. Default `<baseUrl>/odata/v4/analytics`,
    * which is where the gateway serves it; an own deployment sets ODATANO_ANALYTICS_URL to its
    * ASTRA instance (its own app on its own port), or leaves it and gets no analytics tools.
    */
@@ -67,7 +67,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): OdatanoMcpConf
   let servicePrefix = env.ODATANO_SERVICE_PREFIX ?? '/odata/v4';
   if (!servicePrefix.startsWith('/')) servicePrefix = `/${servicePrefix}`;
   servicePrefix = servicePrefix.replace(/\/+$/, '');
-  const analyticsUrl = (env.ODATANO_ANALYTICS_URL || `${baseUrl}/odata/v4/astra`).replace(/\/+$/, '');
+  const analyticsUrl = (env.ODATANO_ANALYTICS_URL || `${baseUrl}/odata/v4/analytics`).replace(/\/+$/, '');
   return {
     baseUrl,
     token: env.ODATANO_ACCESS_KEY || undefined,

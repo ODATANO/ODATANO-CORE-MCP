@@ -115,7 +115,7 @@ Configuration is environment-driven (the same variables in an MCP client's `env`
 | `ODATANO_ACCESS_USER` / `ODATANO_ACCESS_PASSWORD` | unset | Basic auth against a direct instance, operator or CAP mocked/dev auth (e.g. `alice`); not for agents |
 | `ODATANO_SERVICE_PREFIX` | `/odata/v4` | Prefix before `cardano`, `cardano-transaction`, `cardano-sign`, `cardano-worker`, `cardano-indexer` |
 | `ODATANO_ODATA_SERVICE` | `cardano` | Name of the read service (CardanoODataService); `cardano-odata` for a direct host below 2.0.0-rc.40 |
-| `ODATANO_ANALYTICS_URL` | `<ODATANO_ACCESS_URL>/odata/v4/astra` | Absolute URL of ODATANO ASTRA (analytics). Nothing to set through the gateway; for an own deployment the URL of your ASTRA instance, which is its own app on its own port. The `analytics_*` tools register when it answers |
+| `ODATANO_ANALYTICS_URL` | `<ODATANO_ACCESS_URL>/odata/v4/analytics` | Absolute URL of ODATANO ASTRA (analytics). Nothing to set through the gateway; for an own deployment the URL of your ASTRA instance, which is its own app on its own port. The `analytics_*` tools register when it answers |
 | `ODATANO_TIMEOUT_MS` | `30000` | Per-request timeout |
 | `ODATANO_MCP_MAX_ROWS` | `50` | Default `$top` for `query_entity` and cap on arrays in tool output |
 | `ODATANO_MCP_ENABLE_WALLET_JOBS` | `false` | Register `submit_wallet_job` / `cancel_wallet_job` (server-managed wallets sign — see below) |
