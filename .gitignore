@@ -4,3 +4,4 @@ dist/
 *.log
 .env
 PLAN.md
+local_docs/

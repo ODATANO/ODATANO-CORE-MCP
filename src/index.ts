@@ -13,10 +13,8 @@ async function main(): Promise<void> {
   }
   const caps = await detectCapabilities(client);
   const server = buildServer(config, caps);
-  const optional = [caps.worker && 'worker', caps.indexer && 'indexer', caps.analytics && 'analytics (ASTRA)'].filter(Boolean).join(', ')
-    || (caps.closed ? 'none (operator services are closed on the gateway)' : 'none (core < 2.0 or unreachable)');
-  console.error(`odatano-mcp: connecting tools to ${config.baseUrl}${config.servicePrefix} (optional services: ${optional}` +
-    `${caps.worker && config.enableWalletJobs ? '; wallet jobs ENABLED' : ''})`);
+  console.error(`odatano-mcp: connecting tools to ${config.baseUrl}${config.servicePrefix}` +
+    ` (analytics: ${caps.analytics ? 'yes' : 'not served'})`);
   await server.connect(new StdioServerTransport());
 }
 

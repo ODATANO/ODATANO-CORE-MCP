@@ -1,9 +1,9 @@
 /**
  * Integration check for the MCP server, no network required by default:
  * builds the server, connects an MCP client over an in-memory transport,
- * lists the tools and asserts the core tool set (and, per capability flags,
- * the v2.0 tool set) is present with schemas, and that malformed arguments
- * are rejected before any HTTP call.
+ * lists the tools and asserts the API tool set is present with schemas, that
+ * no operator tool is registered, and that malformed arguments are rejected
+ * before any HTTP call.
  *
  * Live mode (optional): set ODATANO_LIVE=1 plus ODATANO_ACCESS_URL and
  * credentials to round-trip reads (and one unsigned build) against a running
@@ -25,16 +25,22 @@ const CORE_TOOLS = [
   'query_entity',
   // build
   'build_ada_transfer', 'build_metadata_transaction', 'build_multi_asset_transfer', 'build_mint_transaction',
-  'build_plutus_spend', 'set_collateral', 'get_build_details', 'list_builds_by_address',
+  'build_plutus_spend', 'set_collateral', 'get_build_details',
   'derive_script_address', 'extract_payment_key_hash',
   // sign / submit
-  'create_signing_request', 'get_signing_request', 'list_signing_requests', 'verify_signature',
+  'create_signing_request', 'get_signing_request', 'verify_signature',
   'verify_data_signature', 'submit_signed_transaction', 'submit_verified_transaction', 'get_submission_status',
 ];
-const WORKER_TOOLS = ['get_worker_status', 'get_wallet_job_status'];
-const WORKER_WRITE_TOOLS = ['submit_wallet_job', 'cancel_wallet_job'];
-const INDEXER_TOOLS = ['get_sync_status', 'get_reorg_log'];
-const NEVER = ['sign_with_hsm', 'pause_worker', 'resume_worker', 'pause_crawler', 'resume_crawler'];
+const ANALYTICS_TOOLS = [
+  'analytics_overview', 'analytics_key_figures', 'analytics_daily', 'analytics_top', 'analytics_epochs',
+  'analytics_metrics', 'analytics_metric', 'analytics_series', 'analytics_compare', 'analytics_anomalies',
+];
+// Operator tools and the lists the gateway closes: never part of this server.
+const NEVER = [
+  'sign_with_hsm', 'pause_worker', 'resume_worker', 'pause_crawler', 'resume_crawler',
+  'get_sync_status', 'get_reorg_log', 'get_worker_status', 'get_wallet_job_status', 'submit_wallet_job', 'cancel_wallet_job',
+  'list_builds_by_address', 'list_signing_requests',
+];
 
 function fail(message) {
   console.error(`FAIL: ${message}`);
@@ -63,24 +69,28 @@ async function expectTools(client, expected, forbidden = []) {
 
 const config = loadConfig();
 
-// 1. Core-only capability set (what a 1.x host gets).
-const core = await connect(config, { worker: false, indexer: false });
-const coreNames = await expectTools(core, CORE_TOOLS, [...WORKER_TOOLS, ...WORKER_WRITE_TOOLS, ...INDEXER_TOOLS, ...NEVER]);
-console.log(`OK: core tool set, ${coreNames.length} tools`);
+// 1. API tool set, no analytics.
+const core = await connect(config, {});
+const coreNames = await expectTools(core, CORE_TOOLS, [...ANALYTICS_TOOLS, ...NEVER]);
+if (coreNames.length !== CORE_TOOLS.length) fail(`unexpected tools: ${coreNames.filter((n) => !CORE_TOOLS.includes(n)).join(', ')}`);
+console.log(`OK: API tool set, ${coreNames.length} tools`);
 
-// 2. Full 2.0 capability set, wallet jobs off.
-const full = await connect(config, { worker: true, indexer: true });
-const fullNames = await expectTools(full, [...CORE_TOOLS, ...WORKER_TOOLS, ...INDEXER_TOOLS], [...WORKER_WRITE_TOOLS, ...NEVER]);
-console.log(`OK: v2.0 tool set, ${fullNames.length} tools (wallet jobs off)`);
+// 2. With analytics.
+const full = await connect(config, { analytics: true });
+const fullNames = await expectTools(full, [...CORE_TOOLS, ...ANALYTICS_TOOLS], NEVER);
+console.log(`OK: with analytics, ${fullNames.length} tools`);
 
-// 3. Wallet jobs opt-in.
-const withJobs = await connect({ ...config, enableWalletJobs: true }, { worker: true, indexer: true });
-await expectTools(withJobs, [...CORE_TOOLS, ...WORKER_TOOLS, ...WORKER_WRITE_TOOLS, ...INDEXER_TOOLS], NEVER);
-console.log('OK: wallet-job tools registered only with ODATANO_MCP_ENABLE_WALLET_JOBS');
+// 3. Query covers chain data only.
+const queryTool = (await core.listTools()).tools.find((t) => t.name === 'query_entity');
+const entities = queryTool.inputSchema.properties.entity.enum;
+for (const closed of ['TransactionBuilds', 'SigningRequests', 'TransactionSubmissions', 'WalletJobs', 'SyncState']) {
+  if (entities.includes(closed)) fail(`query_entity offers ${closed}`);
+}
+console.log(`OK: query_entity offers ${entities.length} chain entity sets`);
 
 // 4. Schema-validation path: bad arguments must be rejected without any HTTP call.
 //    (baseUrl points at an unroutable host so an accidental call would surface as a network error text.)
-const offline = await connect({ ...config, baseUrl: 'http://127.0.0.1:9', timeoutMs: 500 }, { worker: false, indexer: false });
+const offline = await connect({ ...config, baseUrl: 'http://127.0.0.1:9', timeoutMs: 500 }, {});
 const rejects = [
   ['get_block', { hash: 'not-hex' }],
   ['get_address', { address: 'addr_test1QQETX' }],
@@ -105,7 +115,7 @@ console.log(`OK: ${rejects.length} invalid-argument cases rejected before any HT
 if (process.env.ODATANO_LIVE === '1') {
   const liveClient = new OdatanoClient(config);
   const caps = await detectCapabilities(liveClient);
-  console.log(`live: capabilities worker=${caps.worker} indexer=${caps.indexer}`);
+  console.log(`live: analytics=${caps.analytics}`);
   const live = await connect(config, caps);
   const call = async (name, args = {}) => {
     const res = await live.callTool({ name, arguments: args });
@@ -145,8 +155,7 @@ if (process.env.ODATANO_LIVE === '1') {
     if (!parsed || typeof parsed !== 'object') fail('parse_transaction_cbor failed on the build');
     console.log(`  build ${build.id ?? build.buildId}: fee ${build.fee} (unsigned, not submitted)`);
   }
-  if (caps.indexer) await call('get_sync_status');
-  if (caps.worker) await call('get_worker_status');
+  if (caps.analytics) await call('analytics_overview');
   console.log('OK: live round-trip succeeded (nothing was submitted)');
 }
 

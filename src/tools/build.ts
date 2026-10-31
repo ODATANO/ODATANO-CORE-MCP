@@ -234,19 +234,6 @@ export function registerBuildTools(server: McpServer, ctx: ToolContext): void {
   );
 
   server.registerTool(
-    'list_builds_by_address',
-    {
-      description: 'Transaction builds recorded for a sender address (build audit trail): buildId, status, fee, created time.',
-      inputSchema: {
-        address: bech32Address.describe('Sender address (bech32)'),
-      },
-    },
-    run(async (args) => client.callAction('transaction', 'GetTransactionBuildsByAddress', { address: args.address }), {
-      notFoundAs: (args) => ({ address: args.address }),
-    }),
-  );
-
-  server.registerTool(
     'derive_script_address',
     {
       description:

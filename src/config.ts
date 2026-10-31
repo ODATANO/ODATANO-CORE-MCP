@@ -6,10 +6,10 @@
  * by pointing ODATANO_ACCESS_URL at it.
  */
 export interface OdatanoMcpConfig {
-  /** Base URL: the ODATANO ACCESS gateway (default https://api.preprod.odatano.dev) or a direct ODATANO host app. */
+  /** Base URL: the ODATANO API (default https://api.preprod.odatano.dev) or a direct ODATANO host app. */
   baseUrl: string;
   /**
-   * ODATANO_ACCESS_KEY. The usual value is an ODATANO ACCESS key (`oda_...`),
+   * ODATANO_ACCESS_KEY. The usual value is an ODATANO API key (`oda_...`),
    * sent as `Authorization: Bearer`; the gateway swaps in the agent grant.
    * Against a direct ODATANO instance an `odat_...` agent-grant token goes as
    * `x-agent-token` (optionally alongside basic transport auth); anything
@@ -33,8 +33,6 @@ export interface OdatanoMcpConfig {
   timeoutMs: number;
   /** Default `$top` for query tools and cap for arrays in tool output. */
   maxRows: number;
-  /** Register the wallet-worker write tools (submit_wallet_job / cancel_wallet_job). */
-  enableWalletJobs: boolean;
 }
 
 /** ODATANO service names (path segments after the prefix). */
@@ -42,8 +40,6 @@ export const SERVICES = {
   odata: 'cardano',
   transaction: 'cardano-transaction',
   sign: 'cardano-sign',
-  worker: 'cardano-worker',
-  indexer: 'cardano-indexer',
 } as const;
 
 export type ServiceKey = keyof typeof SERVICES;
@@ -55,11 +51,6 @@ function positiveInt(name: string, raw: string | undefined, fallback: number): n
     throw new Error(`Invalid ${name}: ${raw}`);
   }
   return n;
-}
-
-function bool(raw: string | undefined): boolean {
-  if (raw === undefined) return false;
-  return ['1', 'true', 'yes', 'on'].includes(raw.trim().toLowerCase());
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): OdatanoMcpConfig {
@@ -78,6 +69,5 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): OdatanoMcpConf
     analyticsUrl,
     timeoutMs: positiveInt('ODATANO_TIMEOUT_MS', env.ODATANO_TIMEOUT_MS, 30000),
     maxRows: positiveInt('ODATANO_MCP_MAX_ROWS', env.ODATANO_MCP_MAX_ROWS, 50),
-    enableWalletJobs: bool(env.ODATANO_MCP_ENABLE_WALLET_JOBS),
   };
 }

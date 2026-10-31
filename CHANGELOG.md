@@ -6,6 +6,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-31
+
+The tool set is what an API key can use. Operator tools are gone.
+
+### Removed (breaking)
+
+- **Worker and indexer tools**: `get_sync_status`, `get_reorg_log`,
+  `get_worker_status`, `get_wallet_job_status`, `submit_wallet_job` and
+  `cancel_wallet_job`, the start-up probes of `cardano-worker` and
+  `cardano-indexer`, and `ODATANO_MCP_ENABLE_WALLET_JOBS`.
+- **`list_builds_by_address` and `list_signing_requests`**: the API answers
+  403. `get_build_details` and `get_signing_request` read by id.
+- **`query_entity` covers the chain entity sets only**: the build, submission,
+  signing, worker and indexer tables are no longer offered.
+
+### Changed
+
+- The MCP server reports the package version to the client.
+
 ## [0.6.0] - 2026-10-19
 
 Analytics under `/odata/v4/analytics` (the gateway serves both names).
@@ -57,7 +76,7 @@ Needs ODATANO 2.0.0-rc.40 on a direct host (the gateway serves both names).
   `ODATANO_USERNAME` and `ODATANO_PASSWORD`; the old names are not read
   any more. `@odatano/nightgate-mcp` 0.7.0 reads the same four, so an
   `.mcp.json` needs one key for both chains and no URL.
-- **Gateway error bodies reach the agent.** The ODATANO ACCESS gateway
+- **Gateway error bodies reach the agent.** The ODATANO API gateway
   answers with `{ error: "<text>", ...detail }`; the client now keeps the
   text as the message and hands the detail (`unitsLeft`, `price`, the
   `topup` hint, `products`, `validUntil`, `retryAfterSeconds` from
@@ -74,7 +93,7 @@ Needs ODATANO 2.0.0-rc.40 on a direct host (the gateway serves both names).
 
 ### Changed
 
-- **The ODATANO ACCESS key (`oda_…`) is the documented credential.** Set
+- **The ODATANO API key (`oda_…`) is the documented credential.** Set
   `ODATANO_BASE_URL=https://api.odatano.dev` and `ODATANO_TOKEN=oda_…`; the
   key goes as a plain `Authorization: Bearer` and the gateway swaps in the
   agent grant, meters the key in units and fronts both ODATANO and

@@ -16,9 +16,9 @@ export class OdatanoApiError extends Error {
 
 /**
  * Two error shapes reach the client: CAP's `{ error: { code, message } }`
- * from ODATANO itself, and the ODATANO ACCESS gateway's `{ error: "<text>",
- * ...detail }` (401 key problems, 402 units exhausted with a top-up hint,
- * 403 closed service or product not on the key, 429 with Retry-After).
+ * from ODATANO itself, and the API gateway's `{ error: "<text>", ...detail }`
+ * (401 key problems, 402 units exhausted with a top-up hint, 403 closed service
+ * or product not on the key, 429 with Retry-After).
  */
 export function apiError(status: number, payload: unknown, headers: Headers, fallback: string): OdatanoApiError {
   const body = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
@@ -46,11 +46,9 @@ export interface EntityQuery {
 }
 
 /**
- * Minimal OData V4 client for the ODATANO services. Three verbs:
- * - unbound actions (POST, JSON body) — all ODATANO read/build/sign operations
- * - unbound functions (GET, parameters inline) — the two v2.0 status functions
- * - entity reads (GET with $filter/$select/... ) — the generic query tool
- * plus a bound action on a single entity (CheckSubmissionStatus).
+ * Minimal OData V4 client for the ODATANO services: unbound actions (POST,
+ * JSON body) for reads, builds and signing, entity reads for the query tool,
+ * and one bound action on a submission (CheckSubmissionStatus).
  */
 export class OdatanoClient {
   constructor(private readonly config: OdatanoMcpConfig) {}
@@ -81,16 +79,6 @@ export class OdatanoClient {
     return this.request('POST', url, params);
   }
 
-  /** GET <service>/<name>(p1=...,p2=...) with only the provided parameters. */
-  async callFunction(service: ServiceKey, name: string, params: Record<string, string | number | undefined> = {}): Promise<unknown> {
-    const parts: string[] = [];
-    for (const [key, value] of Object.entries(params)) {
-      if (value === undefined || value === null || value === '') continue;
-      parts.push(`${key}=${odataLiteral(value)}`);
-    }
-    return this.request('GET', `${this.serviceUrl(service)}/${name}(${parts.join(',')})`);
-  }
-
   /** GET <service>/<Entity>?$filter=...&$top=... — returns the raw OData collection payload. */
   async queryEntity(service: ServiceKey, entity: string, query: EntityQuery = {}): Promise<unknown> {
     const qs = buildQueryString(query);
@@ -103,17 +91,6 @@ export class OdatanoClient {
     return this.request('GET', `${this.serviceUrl(service)}/${entity}(${odataLiteral(key)})${qs}`);
   }
 
-  /**
-   * Cheap capability probe: does `<service>/$metadata` answer 200? Used at
-   * startup to register the v2.0 worker/indexer tools only when they are
-   * reachable. `closed` = the ODATANO ACCESS gateway answers 403 (operator
-   * services are not offered through the key), `absent` = 404 or no answer
-   * (core < 2.0, unreachable).
-   */
-  async serviceStatus(service: ServiceKey): Promise<'served' | 'closed' | 'absent'> {
-    return this.probe(`${this.serviceUrl(service)}/$metadata`);
-  }
-
   // ---- ODATANO ASTRA: analytics over the same index, same host, same key ----
 
   /** Base URL of ODATANO ASTRA: the gateway's `/odata/v4/analytics` unless ODATANO_ANALYTICS_URL says otherwise. */
@@ -121,12 +98,12 @@ export class OdatanoClient {
     return this.config.analyticsUrl;
   }
 
-  /** GET <astra>/<Entity>?$filter=... â the ready-made views (KeyFigures, BlocksDaily, TopTokens, ...). */
+  /** GET <astra>/<Entity>?$filter=...: the ready-made views (KeyFigures, BlocksDaily, TopTokens, ...). */
   async analyticsQuery(entity: string, query: EntityQuery = {}): Promise<unknown> {
     return this.request('GET', `${this.analyticsUrl()}/${entity}${buildQueryString(query)}`);
   }
 
-  /** GET <astra>/<name>(p1=...,p2=...) â getWindow, getSeries, compare, getAnomalies. */
+  /** GET <astra>/<name>(p1=...,p2=...): getWindow, getSeries, compare, getAnomalies. */
   async analyticsFunction(name: string, params: Record<string, string | number | undefined> = {}): Promise<unknown> {
     const parts: string[] = [];
     for (const [key, value] of Object.entries(params)) {
@@ -136,14 +113,10 @@ export class OdatanoClient {
     return this.request('GET', `${this.analyticsUrl()}/${name}(${parts.join(',')})`);
   }
 
-  /** Does the host serve ODATANO ASTRA? Same three answers as serviceStatus. */
+  /** Does the host serve ODATANO ASTRA? `closed` is a 403, `absent` a 404 or no answer. */
   async analyticsStatus(): Promise<'served' | 'closed' | 'absent'> {
-    return this.probe(`${this.analyticsUrl()}/$metadata`);
-  }
-
-  private async probe(url: string): Promise<'served' | 'closed' | 'absent'> {
     try {
-      const response = await fetch(url, {
+      const response = await fetch(`${this.analyticsUrl()}/$metadata`, {
         method: 'GET',
         headers: this.headers(),
         signal: AbortSignal.timeout(Math.min(this.config.timeoutMs, 10000)),
@@ -155,10 +128,6 @@ export class OdatanoClient {
     } catch {
       return 'absent';
     }
-  }
-
-  async serviceExists(service: ServiceKey): Promise<boolean> {
-    return (await this.serviceStatus(service)) === 'served';
   }
 
   private headers(hasBody = false): Record<string, string> {

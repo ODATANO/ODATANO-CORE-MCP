@@ -4,11 +4,8 @@ import { bech32Address, hexString, network, uuid } from '../schemas.js';
 import { makeRunner, type ToolContext } from './shared.js';
 
 /*
- * Signing handoff, verification and submit. The MCP server never signs:
- * a build becomes a signing request whose instructions a human, a CIP-30
- * wallet or a CLI fulfil; the agent then verifies and/or submits the signed
- * CBOR. HSM signing (SignWithHsm / SignAndSubmitWithHsm) is deliberately not
- * exposed - that is a server-held key, i.e. the wallet the agent must not have.
+ * Signing handoff, verification and submit. The MCP server never signs: a human,
+ * a CIP-30 wallet or a CLI signs the request, the agent verifies and submits.
  */
 
 const signerType = z.enum(['cardano-cli', 'browser-wallet', 'hardware-wallet', 'custom'])
@@ -48,19 +45,6 @@ export function registerSignTools(server: McpServer, ctx: ToolContext): void {
     run(async (args) => client.callAction('sign', 'GetSigningRequest', { signingRequestId: args.signingRequestId }), {
       keepCbor: true,
       notFoundAs: (args) => ({ signingRequestId: args.signingRequestId }),
-    }),
-  );
-
-  server.registerTool(
-    'list_signing_requests',
-    {
-      description: 'Signing requests created for a sender address (newest first): id, status, buildId, created time.',
-      inputSchema: {
-        address: bech32Address.describe('Sender address (bech32)'),
-      },
-    },
-    run(async (args) => client.callAction('sign', 'GetSigningRequestsByAddress', { address: args.address }), {
-      notFoundAs: (args) => ({ address: args.address }),
     }),
   );
 

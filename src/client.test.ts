@@ -30,12 +30,10 @@ test('loadConfig defaults + prefix normalisation + validation', () => {
   assert.equal(c.servicePrefix, '/odata/v4');
   assert.equal(c.services.odata, 'cardano');
   assert.equal(c.maxRows, 50);
-  assert.equal(c.enableWalletJobs, false);
-  const d = loadConfig({ ODATANO_ACCESS_URL: 'https://h/', ODATANO_SERVICE_PREFIX: 'api/', ODATANO_ODATA_SERVICE: 'cardano-odata', ODATANO_MCP_ENABLE_WALLET_JOBS: 'true' });
+  const d = loadConfig({ ODATANO_ACCESS_URL: 'https://h/', ODATANO_SERVICE_PREFIX: 'api/', ODATANO_ODATA_SERVICE: 'cardano-odata' });
   assert.equal(d.baseUrl, 'https://h');
   assert.equal(d.servicePrefix, '/api');
   assert.equal(d.services.odata, 'cardano-odata');
-  assert.equal(d.enableWalletJobs, true);
   assert.throws(() => loadConfig({ ODATANO_TIMEOUT_MS: '-1' }), /Invalid ODATANO_TIMEOUT_MS/);
 });
 
@@ -64,21 +62,17 @@ test('OdatanoClient builds service URLs, auth headers and surfaces OData errors'
     assert.equal(seen[0].headers['x-agent-token'], 'odat_abc');
     assert.equal(seen[0].headers.Authorization, `Basic ${Buffer.from('alice:').toString('base64')}`);
 
-    await client.callFunction('worker', 'GetJobStatus', { jobId: '0f8fad5b-d9cb-469f-a165-70867728950e' });
-    assert.equal(seen[1].url, 'http://localhost:4004/odata/v4/cardano-worker/GetJobStatus(jobId=0f8fad5b-d9cb-469f-a165-70867728950e)');
-    assert.equal(seen[1].method, 'GET');
-
     await client.queryEntity('odata', 'Blocks', { top: 2, orderby: 'height desc' });
-    assert.equal(seen[2].url, 'http://localhost:4004/odata/v4/cardano/Blocks?$orderby=height%20desc&$top=2');
+    assert.equal(seen[1].url, 'http://localhost:4004/odata/v4/cardano/Blocks?$orderby=height%20desc&$top=2');
 
     await client.callBoundAction('transaction', 'TransactionSubmissions', '0f8fad5b-d9cb-469f-a165-70867728950e', 'CardanoTransactionService.CheckSubmissionStatus');
-    assert.equal(seen[3].url, 'http://localhost:4004/odata/v4/cardano-transaction/TransactionSubmissions(0f8fad5b-d9cb-469f-a165-70867728950e)/CardanoTransactionService.CheckSubmissionStatus');
+    assert.equal(seen[2].url, 'http://localhost:4004/odata/v4/cardano-transaction/TransactionSubmissions(0f8fad5b-d9cb-469f-a165-70867728950e)/CardanoTransactionService.CheckSubmissionStatus');
 
     await assert.rejects(
       client.callAction('odata', 'GetBlockByHash', { hash: 'x' }),
       (err: unknown) => err instanceof OdatanoApiError && err.status === 404 && err.code === 'ODATANO_NOT_FOUND',
     );
-    // An ODATANO ACCESS key (oda_…) is a plain bearer: the gateway resolves the grant underneath.
+    // An ODATANO API key (oda_…) is a plain bearer: the gateway resolves the grant underneath.
     const viaGateway = new OdatanoClient(loadConfig({ ODATANO_ACCESS_KEY: 'oda_' + 'f'.repeat(40) }));
     await viaGateway.callAction('odata', 'GetLatestBlock', { keep: 1 });
     const gw = seen[seen.length - 1];
@@ -128,22 +122,6 @@ test('gateway error bodies keep their text and detail (402 units exhausted, 429 
       client.callAction('odata', 'GetLatestBlock'),
       (err: unknown) => err instanceof OdatanoApiError && err.status === 429 && err.message === 'rate limited' && err.detail?.retryAfterSeconds === 7,
     );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('serviceStatus tells served / closed (gateway 403) / absent apart', async () => {
-  const originalFetch = globalThis.fetch;
-  const answers: number[] = [200, 403, 404];
-  globalThis.fetch = (async () => new Response('', { status: answers.shift() ?? 500 })) as typeof fetch;
-  try {
-    const client = new OdatanoClient(loadConfig({ ODATANO_ACCESS_KEY: 'oda_' + 'f'.repeat(40) }));
-    assert.equal(await client.serviceStatus('worker'), 'served');
-    assert.equal(await client.serviceStatus('worker'), 'closed');
-    assert.equal(await client.serviceStatus('indexer'), 'absent');
-    globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch;
-    assert.equal(await client.serviceStatus('indexer'), 'absent');
   } finally {
     globalThis.fetch = originalFetch;
   }

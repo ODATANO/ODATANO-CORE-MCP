@@ -23,14 +23,13 @@ CBOR; poll confirmations. Sibling of
 [NIGHTGATE-MCP](https://github.com/ODATANO/NIGHTGATE-MCP) (Midnight).
 
 The agent gets a **notary, not a wallet**: nothing in this server can sign.
-HSM signing (`SignWithHsm*`) and every Admin operation (crawler / worker
-pause & resume) are deliberately not exposed. Wallet-worker jobs (ODATANO
-2.0, server-managed wallets) are opt-in.
+It carries what an API key can use. Operator functions (server-held keys,
+server wallets, crawler and worker control) are not part of it.
 
 ## Quick start: the hosted API
 
-The usual way to run this server is against the hosted ODATANO ACCESS
-gateway at [api.preprod.odatano.dev](https://api.preprod.odatano.dev): no node, no plugin,
+The usual way to run this server is against the hosted ODATANO API
+at [api.preprod.odatano.dev](https://api.preprod.odatano.dev): no node, no plugin,
 no wallet of your own. One `oda_…` key covers Cardano (this server) and
 Midnight (`@odatano/nightgate-mcp`).
 
@@ -59,10 +58,8 @@ Midnight (`@odatano/nightgate-mcp`).
    the key per call (metadata and lookups of the service documents are free).
    The hosted ODATANO runs on Cardano **preprod** today.
 
-What the gateway does not offer, this server does not register: the
-operator services (`cardano-worker`, `cardano-indexer`, agent grants) and
-HSM signing answer 403 there, so the catalogue is the 36 core tools. A 402
-from the gateway (units exhausted) reaches the agent with the top-up hint.
+The catalogue is the 34 tools below, plus the analytics tools. A 402 from
+the gateway (units exhausted) reaches the agent with the top-up hint.
 
 ## Requirements
 
@@ -71,8 +68,7 @@ from the gateway (units exhausted) reaches the agent with the top-up hint.
 ## Run your own instance (optional)
 
 Point `ODATANO_ACCESS_URL` at any ODATANO host app instead of the gateway:
-`@odatano/core` >= 1.11.0; the worker / indexer tools appear automatically
-on >= 2.0.0-rc.1, and **2.0.0-rc.3 or newer is recommended** (earlier
+`@odatano/core` >= 1.11.0, **2.0.0-rc.3 or newer is recommended** (earlier
 versions drop `$expand` / `$select` on keyed reads (rc.2) and can answer a
 keyed read with a row the query excludes (rc.3); `get_transaction` works
 around the former, the latter has no workaround). The read service is
@@ -110,19 +106,17 @@ Configuration is environment-driven (the same variables in an MCP client's `env`
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `ODATANO_ACCESS_URL` | `https://api.preprod.odatano.dev` | The ODATANO ACCESS gateway, or a direct ODATANO host app (`http://localhost:4004` for `cds watch`) |
-| `ODATANO_ACCESS_KEY` | unset | **The credential: an ODATANO ACCESS key `oda_…`** (sent as `Authorization: Bearer`; buy one at `POST https://api.preprod.odatano.dev/keys`, redeem a code, or sign in at the console). The same variable configures `@odatano/nightgate-mcp`. Against a direct ODATANO instance an `odat_…` agent-grant token (sent as `x-agent-token`) or any other bearer (XSUAA / `auth: jwt`) goes here too |
+| `ODATANO_ACCESS_URL` | `https://api.preprod.odatano.dev` | The ODATANO API, or a direct ODATANO host app (`http://localhost:4004` for `cds watch`) |
+| `ODATANO_ACCESS_KEY` | unset | **The credential: an ODATANO API key `oda_…`** (sent as `Authorization: Bearer`; buy one at `POST https://api.preprod.odatano.dev/keys`, redeem a code, or sign in at the console). The same variable configures `@odatano/nightgate-mcp`. Against a direct ODATANO instance an `odat_…` agent-grant token (sent as `x-agent-token`) or any other bearer (XSUAA / `auth: jwt`) goes here too |
 | `ODATANO_ACCESS_USER` / `ODATANO_ACCESS_PASSWORD` | unset | Basic auth against a direct instance, operator or CAP mocked/dev auth (e.g. `alice`); not for agents |
-| `ODATANO_SERVICE_PREFIX` | `/odata/v4` | Prefix before `cardano`, `cardano-transaction`, `cardano-sign`, `cardano-worker`, `cardano-indexer` |
+| `ODATANO_SERVICE_PREFIX` | `/odata/v4` | Prefix before `cardano`, `cardano-transaction`, `cardano-sign` |
 | `ODATANO_ODATA_SERVICE` | `cardano` | Name of the read service (CardanoODataService); `cardano-odata` for a direct host below 2.0.0-rc.40 |
 | `ODATANO_ANALYTICS_URL` | `<ODATANO_ACCESS_URL>/odata/v4/analytics` | Absolute URL of ODATANO ASTRA (analytics). Nothing to set through the gateway; for an own deployment the URL of your ASTRA instance, which is its own app on its own port. The `analytics_*` tools register when it answers |
 | `ODATANO_TIMEOUT_MS` | `30000` | Per-request timeout |
 | `ODATANO_MCP_MAX_ROWS` | `50` | Default `$top` for `query_entity` and cap on arrays in tool output |
-| `ODATANO_MCP_ENABLE_WALLET_JOBS` | `false` | Register `submit_wallet_job` / `cancel_wallet_job` (server-managed wallets sign — see below) |
 
-At startup the server probes `<prefix>/cardano-worker/$metadata` and
-`<prefix>/cardano-indexer/$metadata`; the 2.0 tools are registered only when
-those services exist, so a 1.x host gets a clean 36-tool catalogue.
+At startup the server probes `<ODATANO_ANALYTICS_URL>/$metadata`; the
+analytics tools register only when it answers.
 
 ## Tools
 
@@ -140,7 +134,7 @@ those services exist, so a 1.x host gets a clean 36-tool catalogue.
 | `get_address` / `get_utxos` / `get_address_assets` / `get_address_transactions` | Address balance, UTxOs (by address or payment credential), assets, recent txs |
 | `get_asset_info` / `get_asset_history` | Native asset supply + CIP-25/26 metadata, mint/burn history |
 | `get_account` / `get_pool` / `get_drep` | Stake account, stake pool, governance DRep |
-| `query_entity` | Generic OData query (`$filter/$select/$expand/$orderby/$top/$skip/$count`) over the indexer entity sets — the way to use the 2.0 crawler pre-sync |
+| `query_entity` | Generic OData query (`$filter/$select/$expand/$orderby/$top/$skip/$count`) over the chain entity sets of the indexer cache, including the blocks and transactions the host pre-synced |
 
 Lookups return `{ found: false }` as a clean negative instead of an error.
 
@@ -154,7 +148,7 @@ Lookups return `{ found: false }` as a clean negative instead of an error.
 | `build_mint_transaction` | Mint / burn under a Plutus V3 policy (params, required signers, ref inputs, metadata, `__INPUT_IDX__` placeholders) |
 | `build_plutus_spend` | Spend a script UTxO: validator + redeemer, continuing datum, extra outputs, combined mint |
 | `set_collateral` | Ensure an ADA-only collateral UTxO exists (self-send build if not) |
-| `get_build_details` / `list_builds_by_address` | Re-fetch a build / build audit trail |
+| `get_build_details` | Re-fetch a build by id |
 | `derive_script_address` / `extract_payment_key_hash` | Pure utilities |
 
 Every build returns `{ id, unsignedTxCbor, fee, … }` — **nothing is signed or submitted**.
@@ -164,20 +158,12 @@ Every build returns `{ id, unsignedTxCbor, fee, … }` — **nothing is signed o
 | Tool | What it does |
 |---|---|
 | `create_signing_request` | Build → signing request with instructions + `cardano-cli` command for the human / wallet |
-| `get_signing_request` / `list_signing_requests` | State: `pending → verified → submitted` |
+| `get_signing_request` | State by id: `pending → verified → submitted` |
 | `verify_signature` | Check a signed CBOR against its request (required signers, fee payer) — no submit |
 | `verify_data_signature` | CIP-30 `signData` (COSE_Sign1) verification for wallet login / consent |
 | `submit_signed_transaction` | Submit already-signed CBOR (by `buildId`, or raw + `network`); duplicate → `alreadySubmitted: true` |
 | `submit_verified_transaction` | Verify + submit for a signing request (`deferSubmit` supported) |
 | `get_submission_status` | Submission state, optionally re-checking the chain |
-
-### ODATANO 2.0 (registered when the target serves them; closed on the gateway)
-
-| Tool | What it does |
-|---|---|
-| `get_sync_status` / `get_reorg_log` | Crawler / pre-sync status and reorg history (`CardanoIndexerService`) |
-| `get_worker_status` / `get_wallet_job_status` | Wallet-worker status and job polling (`CardanoWorkerService`) |
-| `submit_wallet_job` / `cancel_wallet_job` | **Opt-in** (`ODATANO_MCP_ENABLE_WALLET_JOBS=1`): queue a job that a server-managed wallet builds, signs, submits and confirms — this moves funds; use with a scoped credential only |
 
 ### Analytics (ODATANO ASTRA, registered when the host serves it)
 
