@@ -9,29 +9,32 @@
 
 [![npm](https://img.shields.io/npm/v/@odatano/core-mcp)](https://www.npmjs.com/package/@odatano/core-mcp)
 [![npm downloads](https://img.shields.io/npm/dt/@odatano/core-mcp?logo=npm&label=downloads&color=blue)](https://www.npmjs.com/package/@odatano/core-mcp)
-[![ODATANO](https://img.shields.io/badge/ODATANO-%3E%3D%201.11.0%20(2.0.0--rc.40%2B%20recommended)-0C5ECF)](https://www.npmjs.com/package/@odatano/core)
+[![ODATANO](https://img.shields.io/badge/ODATANO-%3E%3D%202.0.0--rc.40-0C5ECF)](https://www.npmjs.com/package/@odatano/core)
 [![MCP](https://img.shields.io/badge/MCP-server-2ea44f)](https://modelcontextprotocol.io/)
 [![Node](https://img.shields.io/badge/node-%3E%3D%2020-brightgreen?logo=node.js)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-yellow)](LICENSE)
 
-MCP server that lets AI agents use [ODATANO](https://github.com/ODATANO/ODATANO),
-the Cardano OData bridge for SAP CAP: read chain, address, UTxO, asset,
-staking and governance data; query the indexer with OData `$filter`; build
-**unsigned** transactions (ADA, metadata, multi-asset, mint, Plutus V3 spend);
-hand them to a human / wallet for signing; verify signatures; submit signed
-CBOR; poll confirmations. Sibling of
-[NIGHTGATE-MCP](https://github.com/ODATANO/NIGHTGATE-MCP) (Midnight).
+MCP server for Cardano. Reads the chain: blocks, transactions, addresses,
+UTxOs, native assets, stake pools and governance, and queries the index with
+OData filters. Analytics over the whole chain: fees, activity, top tokens,
+policies, addresses and scripts, epoch stake and anomalies. Builds DeFi
+transactions: ADA and token transfers, mints and burns, locks at script
+addresses and Plutus V3 spends. The chain is read through the
+[ODATANO API](https://api.preprod.odatano.dev): no node, no indexer.
 
-The agent gets a **notary, not a wallet**: nothing in this server can sign.
-It carries what an API key can use. Operator functions (server-held keys,
-server wallets, crawler and worker control) are not part of it.
+Every build comes back **unsigned**. The agent never holds a key: the
+signature comes from the user's wallet, a hardware wallet or `cardano-cli`.
+This server then verifies it, submits the transaction and tracks it until
+it is confirmed. Sibling of
+[NIGHTGATE-MCP](https://github.com/ODATANO/NIGHTGATE-MCP) (Midnight).
 
 ## Quick start: the hosted API
 
 The usual way to run this server is against the hosted ODATANO API
-at [api.preprod.odatano.dev](https://api.preprod.odatano.dev): no node, no plugin,
-no wallet of your own. One `oda_…` key covers Cardano (this server) and
-Midnight (`@odatano/nightgate-mcp`).
+at [api.preprod.odatano.dev](https://api.preprod.odatano.dev): no node and
+no plugin. Reads and analytics need only the key; sending a transaction
+needs a wallet that signs it. One `oda_…` key covers Cardano (this server)
+and Midnight (`@odatano/nightgate-mcp`).
 
 1. Get a key at [api.preprod.odatano.dev](https://api.preprod.odatano.dev): sign in with a
    Cardano wallet (the first key comes with free calls), redeem a giveaway
@@ -58,7 +61,7 @@ Midnight (`@odatano/nightgate-mcp`).
    the key per call (metadata and lookups of the service documents are free).
    The hosted ODATANO runs on Cardano **preprod** today.
 
-The catalogue is the 34 tools below, plus the analytics tools. A 402 from
+The catalogue is the 34 tools below plus 10 analytics tools. A 402 from
 the gateway (units exhausted) reaches the agent with the top-up hint.
 
 ## Requirements
@@ -67,13 +70,14 @@ the gateway (units exhausted) reaches the agent with the top-up hint.
 
 ## Run your own instance (optional)
 
-Point `ODATANO_ACCESS_URL` at any ODATANO host app instead of the gateway:
-`@odatano/core` >= 1.11.0, **2.0.0-rc.3 or newer is recommended** (earlier
-versions drop `$expand` / `$select` on keyed reads (rc.2) and can answer a
-keyed read with a row the query excludes (rc.3); `get_transaction` works
-around the former, the latter has no workaround). The read service is
-`cardano` from 2.0.0-rc.40 on; an older host serves it as `cardano-odata`,
-set `ODATANO_ODATA_SERVICE=cardano-odata` there.
+Point `ODATANO_ACCESS_URL` at any ODATANO host app instead of the gateway.
+It needs `@odatano/core` **2.0.0-rc.40 or newer**, which serves the read
+service as `cardano`. An older host serves it as `cardano-odata`: set
+`ODATANO_ODATA_SERVICE=cardano-odata` there.
+
+The analytics tools need an ODATANO ASTRA instance. It runs as its own app
+on its own port. Set `ODATANO_ANALYTICS_URL` to it, or leave it unset and
+the server starts without the `analytics_*` tools.
 
 The fastest way is the official Docker image (published from the ODATANO
 repo on every release; details in its `docs/guides/DOCKER_DEPLOYMENT.md`):
@@ -100,6 +104,7 @@ ODATANO_ACCESS_USER=alice            # CAP mocked auth, or an odat_… agent gra
 ```bash
 npm install
 npm run build
+npm test
 ```
 
 Configuration is environment-driven (the same variables in an MCP client's `env` block):
@@ -158,12 +163,12 @@ Every build returns `{ id, unsignedTxCbor, fee, … }` — **nothing is signed o
 | Tool | What it does |
 |---|---|
 | `create_signing_request` | Build → signing request with instructions + `cardano-cli` command for the human / wallet |
-| `get_signing_request` | State by id: `pending → verified → submitted` |
+| `get_signing_request` | State by id: `pending → verified → submitted`, or `failed` |
 | `verify_signature` | Check a signed CBOR against its request (required signers, fee payer) — no submit |
 | `verify_data_signature` | CIP-30 `signData` (COSE_Sign1) verification for wallet login / consent |
 | `submit_signed_transaction` | Submit already-signed CBOR (by `buildId`, or raw + `network`); duplicate → `alreadySubmitted: true` |
 | `submit_verified_transaction` | Verify + submit for a signing request (`deferSubmit` supported) |
-| `get_submission_status` | Submission state, optionally re-checking the chain |
+| `get_submission_status` | Submission state `pending → submitted → confirmed`, or `failed`; `refresh` re-checks the chain |
 
 ### Analytics (ODATANO ASTRA, registered when the host serves it)
 
@@ -187,6 +192,7 @@ Midnight server carries the same tools for its chain.
 Upstream OData errors are returned as tool errors with
 `{ httpStatus, code, message }` (`ODATANO_INVALID_INPUT`, `ODATANO_NOT_FOUND`,
 `ODATANO_INSUFFICIENT_FUNDS`, `ODATANO_TX_VALIDATION_FAILED`,
+`ODATANO_TX_ALREADY_SUBMITTED`,
 `ODATANO_PROVIDER_UNAVAILABLE`, `ODATANO_PROVIDER_RATE_LIMITED`, …) so the
 agent can react (401 → credentials, 429 → back off, 400 → fix arguments).
 Long arrays are capped at `ODATANO_MCP_MAX_ROWS` and large CBOR blobs nested
@@ -200,8 +206,11 @@ npm run integration
 
 Runs an in-memory MCP client against the server: asserts the tool sets per
 capability, schemas, and that invalid arguments are rejected before any HTTP
-call. Optional live round-trip on preview (reads only; add
-`ODATANO_TEST_BUILD=1` for one unsigned build that is parsed, never submitted):
+call. Optional live round-trip against an own preview host (the fixtures
+are preview data; reads only, add `ODATANO_TEST_BUILD=1` for one unsigned
+build that is parsed, never submitted). Override the fixtures with
+`ODATANO_TEST_TX`, `ODATANO_TEST_ADDRESS`, `ODATANO_TEST_BLOCK` and
+`ODATANO_TEST_POOL`:
 
 ```bash
 ODATANO_LIVE=1 ODATANO_ACCESS_URL=http://localhost:4004 ODATANO_ACCESS_USER=alice \

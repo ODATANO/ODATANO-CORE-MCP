@@ -1,7 +1,7 @@
 {
   "name": "@odatano/core-mcp",
   "version": "0.7.0",
-  "description": "MCP server exposing ODATANO (Cardano OData bridge, SAP CAP) to AI agents: reads, unsigned tx builds, signing handoff, submit",
+  "description": "MCP server for Cardano: chain reads, analytics and unsigned DeFi transactions (transfers, mints, Plutus V3 spends), verified and submitted after wallet signing",
   "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
@@ -40,6 +40,8 @@
     "sap-cap",
     "utxo",
     "plutus",
+    "defi",
+    "analytics",
     "ai-agent"
   ],
   "dependencies": {
