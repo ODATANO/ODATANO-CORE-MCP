@@ -39,7 +39,7 @@ export function registerQueryTools(server: McpServer, ctx: ToolContext): void {
         'syntax: $filter (e.g. "fee gt 500000 and blockHeight ge 1000000"), $select, $expand (e.g. "inputs,outputs" on Transactions), $orderby, $top/$skip, $count. Numeric ' +
         'Int64/Decimal fields are returned as strings (CAP 10). Read-only; write verbs are rejected upstream ' +
         `with 405. Results are capped at ${config.maxRows} rows unless top is set lower; use skip to page. ` +
-        `Entities: ${QUERY_ENTITIES.join(', ')}.`,
+        `Entities: ${QUERY_ENTITIES.join(', ')}. Accounts rows carry no addresses; get_account lists them.`,
       inputSchema: {
         entity: z.enum(QUERY_ENTITIES).describe('Entity set name'),
         filter: z.string().max(4000).optional().describe('OData $filter expression'),

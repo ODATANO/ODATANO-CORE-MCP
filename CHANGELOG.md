@@ -6,6 +6,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-26
+
+Needs ODATANO 2.0.0-rc.52 on a direct host.
+
+### Changed
+
+- **`parse_transaction_cbor` takes at most 65536 hex characters** (32 KiB),
+  the limit of the host. Longer CBOR is refused before the call.
+- **Mint actions with a quantity of 0 are refused** in `build_mint_transaction`
+  and `build_plutus_spend`.
+- **Build expiry described**: `validityEndMs` defaults to one hour ahead and
+  is at most 24 hours ahead. On `build_ada_transfer` and
+  `build_multi_asset_transfer` no start is set when `validityStartMs` is
+  omitted; on the script builds it defaults to now - 120 s.
+  `build_metadata_transaction` expires one hour after the build.
+- **Status `unresolved`** in `get_signing_request` and
+  `get_submission_status`, plus `signed`, `submitting` and `expired` for
+  signing requests.
+- `submit_signed_transaction` names the expiry refusals of the host.
+- `set_collateral`, `extract_payment_key_hash` and `query_entity` on
+  `Accounts` describe the current host behaviour.
+
 ## [0.7.0] - 2026-10-31
 
 The tool set is what an API key can use. Operator tools are gone.

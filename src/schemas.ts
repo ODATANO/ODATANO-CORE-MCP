@@ -98,3 +98,15 @@ export const network = z.enum(['mainnet', 'preview', 'preprod']);
 export const clampedInt = (what: string, min: number, max: number, fallback: number) =>
   z.number().int().min(min, `${what} must be >= ${min}`).max(max, `${what} must be <= ${max}`).optional()
     .transform((v) => v ?? fallback);
+
+/** Mint actions as JSON array; a quantity of 0 is refused like on the server. */
+export const mintActions = (what: string) =>
+  jsonValue(what, 'array').superRefine((s, ctx) => {
+    const entries = JSON.parse(s) as unknown[];
+    entries.forEach((entry, i) => {
+      const quantity = (entry as { quantity?: unknown } | null)?.quantity;
+      if (quantity !== undefined && /^[-+]?0+$/.test(String(quantity))) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `${what}[${i}].quantity must not be 0` });
+      }
+    });
+  });

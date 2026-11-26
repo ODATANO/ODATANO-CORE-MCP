@@ -22,7 +22,8 @@ export interface RunOptions<A> {
 /** Fixed sentence appended to every build tool description. */
 export const UNSIGNED_HINT =
   ' Returns UNSIGNED CBOR (unsignedTxCbor) + fee + buildId; NOTHING is signed or submitted. ' +
-  'Hand the buildId to create_signing_request so a human / wallet can sign, then submit_signed_transaction.';
+  'Hand the buildId to create_signing_request so a human / wallet can sign, then submit_signed_transaction. ' +
+  'The build expires at its ttl (one hour by default); expired bytes are refused at submit.';
 
 export const JSON_HINT = ' JSON parameters may be passed as a JSON string or as a native JSON value.';
 

@@ -1,6 +1,6 @@
 {
   "name": "@odatano/core-mcp",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "MCP server for Cardano: chain reads, analytics and unsigned DeFi transactions (transfers, mints, Plutus V3 spends), verified and submitted after wallet signing",
   "license": "Apache-2.0",
   "publishConfig": {

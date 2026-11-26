@@ -1,7 +1,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 import {
-  amount, bech32Address, hex64, hexString, jsonValue, network, posixMs, uuid,
+  amount, bech32Address, hex64, hexString, jsonValue, mintActions, network, posixMs, uuid,
 } from '../schemas.js';
 import { JSON_HINT, makeRunner, UNSIGNED_HINT, type ToolContext } from './shared.js';
 
@@ -13,11 +13,20 @@ import { JSON_HINT, makeRunner, UNSIGNED_HINT, type ToolContext } from './shared
  * safe: the worst outcome of a bad build is an unsigned CBOR nobody signs.
  */
 
-const validityBounds = {
+const VALIDITY_END =
+  'Optional validity-interval end, Posix milliseconds. Defaults to now + 3 600 000 ms, or to validityStartMs + ' +
+  '3 600 000 ms when that start lies in the future. At most 24 hours ahead, else 400.';
+
+const transferValidity = {
   validityStartMs: posixMs('validityStartMs').optional()
-    .describe('Optional validity-interval start, Posix milliseconds'),
-  validityEndMs: posixMs('validityEndMs').optional()
-    .describe('Optional validity-interval end, Posix milliseconds'),
+    .describe('Optional validity-interval start, Posix milliseconds. No start is set when omitted.'),
+  validityEndMs: posixMs('validityEndMs').optional().describe(VALIDITY_END),
+};
+
+const scriptValidity = {
+  validityStartMs: posixMs('validityStartMs').optional()
+    .describe('Optional validity-interval start, Posix milliseconds. Defaults to now - 120 000 ms.'),
+  validityEndMs: posixMs('validityEndMs').optional().describe(VALIDITY_END),
 };
 
 const scriptParams = {
@@ -78,7 +87,7 @@ export function registerBuildTools(server: McpServer, ctx: ToolContext): void {
         lockOnScript: z.boolean().optional()
           .describe('When true, route the output to the enterprise script address derived from validatorScript (+ scriptParamsJson) instead of recipientAddress'),
         ...referenceScript,
-        ...validityBounds,
+        ...transferValidity,
       },
     },
     run(async (args) => client.callAction('transaction', 'BuildSimpleAdaTransaction', args), { keepCbor: true }),
@@ -89,7 +98,8 @@ export function registerBuildTools(server: McpServer, ctx: ToolContext): void {
     {
       description:
         'Build an ADA transfer that carries transaction metadata (CIP-20 message, label-1447 financial anchor, ' +
-        'any label -> JSON). Use lovelaceAmount = min-ADA and recipient = sender for a pure anchoring tx.' +
+        'any label -> JSON). Use lovelaceAmount = min-ADA and recipient = sender for a pure anchoring tx. ' +
+        'The transaction expires one hour after the build.' +
         UNSIGNED_HINT + JSON_HINT,
       inputSchema: {
         senderAddress: bech32Address.describe('Sender / fee payer (bech32)'),
@@ -119,7 +129,7 @@ export function registerBuildTools(server: McpServer, ctx: ToolContext): void {
         outputDatumJson: jsonValue('outputDatumJson').optional()
           .describe('Optional inline datum for the recipient output (PlutusData JSON). Required for script addresses.'),
         ...referenceScript,
-        ...validityBounds,
+        ...transferValidity,
       },
     },
     run(async (args) => client.callAction('transaction', 'BuildMultiAssetTransaction', args), { keepCbor: true }),
@@ -138,8 +148,8 @@ export function registerBuildTools(server: McpServer, ctx: ToolContext): void {
         senderAddress: bech32Address.describe('Sender / fee payer (bech32)'),
         recipientAddress: bech32Address.describe('Receiver of the minted assets (bech32)'),
         lovelaceAmount: amount('lovelaceAmount').describe('Lovelace sent with the minted assets (must cover min-ADA)'),
-        mintActionsJson: jsonValue('mintActionsJson', 'array')
-          .describe('Mint/burn actions: [{"assetUnit":"policyId+assetNameHex","quantity":"amount"}] (negative quantity = burn)'),
+        mintActionsJson: mintActions('mintActionsJson')
+          .describe('Mint/burn actions: [{"assetUnit":"policyId+assetNameHex","quantity":"amount"}] (negative quantity = burn, 0 is refused)'),
         mintingPolicyScript: hexString('mintingPolicyScript').describe('Minting policy script CBOR hex (as emitted by Aiken/Plutus; do NOT unwrap)'),
         changeAddress: bech32Address.optional().describe('Change address; defaults to senderAddress'),
         ...requiredSigners,
@@ -155,7 +165,7 @@ export function registerBuildTools(server: McpServer, ctx: ToolContext): void {
         metadataJson: jsonValue('metadataJson', 'object').optional()
           .describe('Optional metadata object keyed by numeric label string (CIP-25: {"721":{...}})'),
         ...referenceScript,
-        ...validityBounds,
+        ...scriptValidity,
       },
     },
     run(async (args) => client.callAction('transaction', 'BuildMintTransaction', args), { keepCbor: true }),
@@ -189,15 +199,15 @@ export function registerBuildTools(server: McpServer, ctx: ToolContext): void {
         ...forceInputs,
         extraOutputsJson: jsonValue('extraOutputsJson', 'array').optional()
           .describe('Optional additional outputs after the primary one: [{address, lovelaceAmount, assets?:[{unit,quantity}], inlineDatumJson?, referenceScriptHex?}]'),
-        mintActionsJson: jsonValue('mintActionsJson', 'array').optional()
-          .describe('Optional mint/burn actions for a combined spend+mint: [{"assetUnit","quantity"}]; requires mintingPolicyScript'),
+        mintActionsJson: mintActions('mintActionsJson').optional()
+          .describe('Optional mint/burn actions for a combined spend+mint: [{"assetUnit","quantity"}] (0 is refused); requires mintingPolicyScript'),
         mintingPolicyScript: hexString('mintingPolicyScript').optional()
           .describe('Optional minting policy CBOR hex (required with mintActionsJson; if byte-equal to validatorScript, scriptParamsJson applies to it too)'),
         mintRedeemerJson: jsonValue('mintRedeemerJson').optional()
           .describe('Optional PlutusData JSON redeemer for the policy; defaults to integer 0; supports __INPUT_IDX__ placeholders'),
         ...referenceInputs,
         ...referenceScript,
-        ...validityBounds,
+        ...scriptValidity,
       },
     },
     run(async (args) => client.callAction('transaction', 'BuildPlutusSpendTransaction', args), { keepCbor: true }),
@@ -207,8 +217,9 @@ export function registerBuildTools(server: McpServer, ctx: ToolContext): void {
     'set_collateral',
     {
       description:
-        'Ensure a dedicated ADA-only collateral UTxO exists for Plutus transactions: checks the address for ' +
-        '>= 2 UTxOs of >= 5 ADA and, if missing, builds a self-send that creates a 5 ADA UTxO. Returns the ' +
+        'Ensure a dedicated ADA-only collateral UTxO exists for Plutus transactions: checks the address for an ' +
+        'ADA-only UTxO of >= 5 ADA without a reference script plus a second UTxO and, if missing, builds a ' +
+        'self-send that creates a 5 ADA UTxO. Returns the ' +
         'build (to sign + submit) or a no-op result when collateral is already fine.' + UNSIGNED_HINT,
       inputSchema: {
         address: bech32Address.describe('Address to check / prepare (bech32)'),
@@ -253,8 +264,9 @@ export function registerBuildTools(server: McpServer, ctx: ToolContext): void {
     'extract_payment_key_hash',
     {
       description:
-        'Utility: decode a bech32 address and return its 28-byte payment credential hash (56 hex). Pure ' +
-        'decoding, no chain call. Use it for requiredSignersJson or credential-based UTxO queries.',
+        'Utility: decode a bech32 address and return its 28-byte payment key hash (56 hex). Pure decoding, no ' +
+        'chain call. Use it for requiredSignersJson or credential-based UTxO queries. An address with a script ' +
+        'payment credential is refused; derive_script_address returns a script hash.',
       inputSchema: {
         address: bech32Address.describe('Bech32 address (addr… / addr_test…)'),
       },

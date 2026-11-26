@@ -9,7 +9,7 @@
 
 [![npm](https://img.shields.io/npm/v/@odatano/core-mcp)](https://www.npmjs.com/package/@odatano/core-mcp)
 [![npm downloads](https://img.shields.io/npm/dt/@odatano/core-mcp?logo=npm&label=downloads&color=blue)](https://www.npmjs.com/package/@odatano/core-mcp)
-[![ODATANO](https://img.shields.io/badge/ODATANO-%3E%3D%202.0.0--rc.40-0C5ECF)](https://www.npmjs.com/package/@odatano/core)
+[![ODATANO](https://img.shields.io/badge/ODATANO-%3E%3D%202.0.0--rc.52-0C5ECF)](https://www.npmjs.com/package/@odatano/core)
 [![MCP](https://img.shields.io/badge/MCP-server-2ea44f)](https://modelcontextprotocol.io/)
 [![Node](https://img.shields.io/badge/node-%3E%3D%2020-brightgreen?logo=node.js)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-Apache--2.0-yellow)](LICENSE)
@@ -71,9 +71,9 @@ the gateway (units exhausted) reaches the agent with the top-up hint.
 ## Run your own instance (optional)
 
 Point `ODATANO_ACCESS_URL` at any ODATANO host app instead of the gateway.
-It needs `@odatano/core` **2.0.0-rc.40 or newer**, which serves the read
-service as `cardano`. An older host serves it as `cardano-odata`: set
-`ODATANO_ODATA_SERVICE=cardano-odata` there.
+It needs `@odatano/core` **2.0.0-rc.52 or newer**. Every build expires, by
+default one hour after the build and at most 24 hours ahead. A host below 2.0.0-rc.40 serves the read service as `cardano-odata`:
+set `ODATANO_ODATA_SERVICE=cardano-odata` there.
 
 The analytics tools need an ODATANO ASTRA instance. It runs as its own app
 on its own port. Set `ODATANO_ANALYTICS_URL` to it, or leave it unset and
@@ -156,19 +156,20 @@ Lookups return `{ found: false }` as a clean negative instead of an error.
 | `get_build_details` | Re-fetch a build by id |
 | `derive_script_address` / `extract_payment_key_hash` | Pure utilities |
 
-Every build returns `{ id, unsignedTxCbor, fee, … }` — **nothing is signed or submitted**.
+Every build returns `{ id, unsignedTxCbor, fee, ttl, … }` — **nothing is signed or submitted**.
+The build expires at `ttl`, one hour ahead unless `validityEndMs` sets it, at most 24 hours.
 
 ### Sign handoff, verify, submit (`CardanoSignService` / `CardanoTransactionService`)
 
 | Tool | What it does |
 |---|---|
 | `create_signing_request` | Build → signing request with instructions + `cardano-cli` command for the human / wallet |
-| `get_signing_request` | State by id: `pending → verified → submitted`, or `failed` |
+| `get_signing_request` | State by id: `pending → verified → submitted`, or `expired`, `failed`, `unresolved` |
 | `verify_signature` | Check a signed CBOR against its request (required signers, fee payer) — no submit |
 | `verify_data_signature` | CIP-30 `signData` (COSE_Sign1) verification for wallet login / consent |
 | `submit_signed_transaction` | Submit already-signed CBOR (by `buildId`, or raw + `network`); duplicate → `alreadySubmitted: true` |
 | `submit_verified_transaction` | Verify + submit for a signing request (`deferSubmit` supported) |
-| `get_submission_status` | Submission state `pending → submitted → confirmed`, or `failed`; `refresh` re-checks the chain |
+| `get_submission_status` | Submission state `pending → submitted → confirmed`, or `failed`, `unresolved`; `refresh` re-checks the chain |
 
 ### Analytics (ODATANO ASTRA, registered when the host serves it)
 
@@ -195,6 +196,9 @@ Upstream OData errors are returned as tool errors with
 `ODATANO_TX_ALREADY_SUBMITTED`,
 `ODATANO_PROVIDER_UNAVAILABLE`, `ODATANO_PROVIDER_RATE_LIMITED`, …) so the
 agent can react (401 → credentials, 429 → back off, 400 → fix arguments).
+`failed` means the transaction can never land. `unresolved` means it can no
+longer land and the chain does not show whether it did: the agent does not
+send it again, an operator settles it.
 Long arrays are capped at `ODATANO_MCP_MAX_ROWS` and large CBOR blobs nested
 in results are elided (the tools whose job is returning CBOR keep it).
 

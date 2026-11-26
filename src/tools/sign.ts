@@ -8,6 +8,10 @@ import { makeRunner, type ToolContext } from './shared.js';
  * a CIP-30 wallet or a CLI signs the request, the agent verifies and submits.
  */
 
+const OUTCOME_HINT =
+  'failed means the transaction can never land. unresolved means it can no longer land and the chain does not ' +
+  'show whether it did: do not send it again, an operator settles it.';
+
 const signerType = z.enum(['cardano-cli', 'browser-wallet', 'hardware-wallet', 'custom'])
   .describe('Which kind of signer produced the CBOR');
 
@@ -37,7 +41,9 @@ export function registerSignTools(server: McpServer, ctx: ToolContext): void {
   server.registerTool(
     'get_signing_request',
     {
-      description: 'Signing request by id: status (pending / verified / submitted / failed), build, instructions, tx hash once submitted.',
+      description:
+        'Signing request by id: status, build, instructions, tx hash once submitted. Status is pending, signed, ' +
+        'verified, submitting, submitted, expired, failed or unresolved. ' + OUTCOME_HINT,
       inputSchema: {
         signingRequestId: uuid('signingRequestId').describe('Signing request id'),
       },
@@ -93,8 +99,9 @@ export function registerSignTools(server: McpServer, ctx: ToolContext): void {
         'checks the CBOR against the recorded build and links the submission to it; without buildId pass ' +
         'network and the raw signed CBOR is submitted as-is (parse_transaction_cbor first if unsure). ' +
         'This tool only submits - the CBOR must already carry valid witnesses; the host will reject unsigned ' +
-        'or mis-signed CBOR. Returns { id (submissionId), txHash, status }. A duplicate submit returns ' +
-        'alreadySubmitted:true rather than an error.',
+        'or mis-signed CBOR. The host refuses with 400 CBOR without an expiry, with one more than 24 hours ' +
+        'ahead or already passed, and CBOR marked isValid false. Returns { id (submissionId), txHash, status }. ' +
+        'A duplicate submit returns alreadySubmitted:true rather than an error.',
       inputSchema: {
         signedTxCbor: hexString('signedTxCbor').describe('Signed transaction CBOR (hex)'),
         buildId: uuid('buildId').optional().describe('Build id to submit against (preferred)'),
@@ -134,7 +141,8 @@ export function registerSignTools(server: McpServer, ctx: ToolContext): void {
     'get_submission_status',
     {
       description:
-        'Status of a transaction submission by submission id: pending -> submitted -> confirmed | failed. ' +
+        'Status of a transaction submission by submission id: pending -> submitted -> confirmed, or failed ' +
+        'or unresolved. ' + OUTCOME_HINT + ' ' +
         'With refresh=true the host re-queries the chain for confirmation before answering (bound action ' +
         'CheckSubmissionStatus; only meaningful while status is submitted).',
       inputSchema: {

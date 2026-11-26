@@ -137,9 +137,9 @@ export function registerReadTools(server: McpServer, ctx: ToolContext): void {
         'Decode hex transaction CBOR (signed or unsigned) into structured fields: inputs, outputs, fee, ' +
         'validity interval, mint, metadata, required signers, witness summary. Pure function - no network, ' +
         'no DB write. Use it to inspect an unsigned build before asking a human to sign, or to check a ' +
-        'signed CBOR before submitting. Capped at 128 KiB of hex.',
+        'signed CBOR before submitting. At most 65536 hex characters (32 KiB).',
       inputSchema: {
-        cbor: hexString('cbor', 131072).describe('Hex-encoded transaction CBOR'),
+        cbor: hexString('cbor', 65536).describe('Hex-encoded transaction CBOR'),
       },
     },
     run(async (args) => client.callAction('odata', 'ParseTransactionCbor', { cbor: args.cbor }), { keepCbor: true }),

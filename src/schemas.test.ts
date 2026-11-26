@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { amount, assetUnit, bech32Address, hex64, hexString, jsonValue, poolId, stakeAddress } from './schemas.js';
+import {
+  amount, assetUnit, bech32Address, hex64, hexString, jsonValue, mintActions, poolId, stakeAddress,
+} from './schemas.js';
 
 const ADDR = 'addr_test1qqetxfc069tpemq25f954mrg2rxsr9jgvqe78hvyn9zuxxdvaqvlg96unszfywdfrjwq0m8zp0m7wjza0n2pfeep5h7qw62gd8';
 
@@ -50,4 +52,13 @@ test('jsonValue accepts strings and native values, enforces kind, always yields 
   const obj = jsonValue('m', 'object');
   assert.equal(obj.parse({ 674: { msg: ['hi'] } }), '{"674":{"msg":["hi"]}}');
   assert.ok(!obj.safeParse('[1]').success);
+});
+
+test('mintActions refuses a quantity of 0', () => {
+  const unit = 'a'.repeat(56) + '74657374';
+  const actions = mintActions('m');
+  assert.equal(actions.parse([{ assetUnit: unit, quantity: '-1' }]), `[{"assetUnit":"${unit}","quantity":"-1"}]`);
+  assert.ok(actions.safeParse([{ assetUnit: unit, quantity: '5' }]).success);
+  assert.ok(!actions.safeParse([{ assetUnit: unit, quantity: '0' }]).success);
+  assert.ok(!actions.safeParse(`[{"assetUnit":"${unit}","quantity":0}]`).success);
 });
